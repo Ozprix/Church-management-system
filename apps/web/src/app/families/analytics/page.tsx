@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { apiFetch, buildApiUrl } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +16,8 @@ type Filters = {
   minMembers: string;
   maxMembers: string;
   withPrimary: "any" | "true" | "false";
+  city: string;
+  state: string;
   createdFrom: string;
   createdTo: string;
 };
@@ -23,6 +26,8 @@ const initialFilters: Filters = {
   minMembers: "",
   maxMembers: "",
   withPrimary: "any",
+  city: "",
+  state: "",
   createdFrom: "",
   createdTo: "",
 };
@@ -30,12 +35,15 @@ const initialFilters: Filters = {
 export default function FamilyAnalyticsPage() {
   const { user, loading } = useAuth();
   const [filters, setFilters] = useState<Filters>(() => ({ ...initialFilters }));
+  const router = useRouter();
 
   const filterParams = useMemo(() => {
     const params = new URLSearchParams();
     if (filters.minMembers) params.set("min_members", filters.minMembers);
     if (filters.maxMembers) params.set("max_members", filters.maxMembers);
     if (filters.withPrimary !== "any") params.set("with_primary_contact", filters.withPrimary);
+    if (filters.city.trim()) params.set("city", filters.city.trim());
+    if (filters.state.trim()) params.set("state", filters.state.trim());
     if (filters.createdFrom) params.set("created_from", filters.createdFrom);
     if (filters.createdTo) params.set("created_to", filters.createdTo);
     return params.toString();
@@ -94,7 +102,7 @@ export default function FamilyAnalyticsPage() {
       </header>
 
       <section className="rounded border border-slate-200 p-4">
-        <form className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <form className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <label className="text-sm font-medium text-slate-700">
             Min members
             <input
@@ -135,6 +143,30 @@ export default function FamilyAnalyticsPage() {
               <option value="true">Has primary contact</option>
               <option value="false">Missing primary contact</option>
             </select>
+          </label>
+          <label className="text-sm font-medium text-slate-700">
+            City
+            <input
+              type="text"
+              value={filters.city}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, city: event.target.value }))
+              }
+              placeholder="e.g. Riverdale"
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="text-sm font-medium text-slate-700">
+            State/Region
+            <input
+              type="text"
+              value={filters.state}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, state: event.target.value }))
+              }
+              placeholder="e.g. CA"
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            />
           </label>
           <label className="text-sm font-medium text-slate-700">
             Created from
@@ -223,6 +255,43 @@ export default function FamilyAnalyticsPage() {
                 label: entry.label,
                 value: entry.total,
               }))}
+              onBarClick={(datum) => {
+                const label = datum.label;
+                if (label === "1") {
+                  setFilters((prev) => ({
+                    ...prev,
+                    minMembers: "1",
+                    maxMembers: "1",
+                  }));
+                  return;
+                }
+
+                if (label === "2-3") {
+                  setFilters((prev) => ({
+                    ...prev,
+                    minMembers: "2",
+                    maxMembers: "3",
+                  }));
+                  return;
+                }
+
+                if (label === "4-5") {
+                  setFilters((prev) => ({
+                    ...prev,
+                    minMembers: "4",
+                    maxMembers: "5",
+                  }));
+                  return;
+                }
+
+                if (label === "6+") {
+                  setFilters((prev) => ({
+                    ...prev,
+                    minMembers: "6",
+                    maxMembers: "",
+                  }));
+                }
+              }}
             />
             <AnalyticsBarChartCard
               title="Relationships represented"
@@ -233,7 +302,16 @@ export default function FamilyAnalyticsPage() {
             />
           </section>
 
-          <RecentFamiliesList families={metrics.recent_families} />
+          <section className="grid gap-6 lg:grid-cols-2">
+            <RecentFamiliesList
+              families={metrics.recent_families}
+              onViewFamily={(id) => router.push(`/families/${id}`)}
+            />
+            <FamiliesMissingPrimaryList
+              families={metrics.families_missing_primary}
+              onViewFamily={(id) => router.push(`/families/${id}`)}
+            />
+          </section>
         </div>
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded border border-slate-200">
@@ -248,8 +326,10 @@ export default function FamilyAnalyticsPage() {
 
 function RecentFamiliesList({
   families,
+  onViewFamily,
 }: {
   families: FamilyAnalyticsResponse["recent_families"];
+  onViewFamily: (id: number) => void;
 }) {
   return (
     <section className="rounded border border-slate-200 p-4">
@@ -266,11 +346,63 @@ function RecentFamiliesList({
               <div className="text-xs text-slate-500">
                 Members: {family.members_count} • Created {createdLabel}
               </div>
+              <div className="mt-2">
+                <button
+                  onClick={() => onViewFamily(family.id)}
+                  className="rounded border border-slate-300 px-3 py-1 text-xs uppercase tracking-wide text-slate-600 hover:bg-slate-100"
+                >
+                  View family
+                </button>
+              </div>
             </li>
           );
         })}
         {!families.length && (
           <p className="text-sm text-slate-500">No recent families in this range.</p>
+        )}
+      </ul>
+    </section>
+  );
+}
+
+function FamiliesMissingPrimaryList({
+  families,
+  onViewFamily,
+}: {
+  families: FamilyAnalyticsResponse["families_missing_primary"];
+  onViewFamily: (id: number) => void;
+}) {
+  return (
+    <section className="rounded border border-slate-200 p-4">
+      <h3 className="text-base font-semibold text-slate-800">Needs primary contact</h3>
+      <p className="text-xs text-slate-500">
+        Prioritise these households to ensure someone is marked as the primary point of contact.
+      </p>
+      <ul className="mt-4 space-y-3 text-sm text-slate-700">
+        {families.map((family) => {
+          const createdLabel = family.created_at
+            ? format(parseISO(family.created_at), "MMM d, yyyy")
+            : "—";
+
+          return (
+            <li key={family.id} className="rounded border border-slate-100 p-3">
+              <div className="font-medium text-slate-800">{family.family_name}</div>
+              <div className="text-xs text-slate-500">
+                Members: {family.members_count} • Created {createdLabel}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  onClick={() => onViewFamily(family.id)}
+                  className="rounded border border-slate-300 px-3 py-1 text-xs uppercase tracking-wide text-slate-600 hover:bg-slate-100"
+                >
+                  View family
+                </button>
+              </div>
+            </li>
+          );
+        })}
+        {!families.length && (
+          <p className="text-sm text-slate-500">All families have a primary contact – great job!</p>
         )}
       </ul>
     </section>

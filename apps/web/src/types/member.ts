@@ -129,6 +129,28 @@ export interface FamilyAnalyticsResponse {
   size_distribution: FamilySizeDistributionEntry[];
   by_relationship: FamilyRelationshipBreakdownEntry[];
   recent_families: RecentFamilySummary[];
+  families_missing_primary: RecentFamilySummary[];
+}
+
+export interface FamilyMemberPivotSummary {
+  relationship: string | null;
+  is_primary_contact: boolean;
+  is_emergency_contact: boolean;
+}
+
+export interface FamilyMemberSummary extends MemberSummary {
+  pivot?: FamilyMemberPivotSummary | null;
+}
+
+export interface FamilyDetail {
+  id: number;
+  family_name: string;
+  photo_path?: string | null;
+  notes?: string | null;
+  address?: Record<string, string | null> | null;
+  members_count?: number;
+  created_at: string | null;
+  members?: FamilyMemberSummary[];
 }
 
 export interface FinanceAnalyticsTotals {

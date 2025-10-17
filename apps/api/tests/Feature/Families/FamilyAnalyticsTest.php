@@ -34,6 +34,28 @@ class FamilyAnalyticsTest extends TestCase
             ]);
         }
 
+        $familyWithoutPrimary = Family::factory()->create([
+            'tenant_id' => $tenant->id,
+            'address' => [
+                'line1' => '456 Side St',
+                'city' => 'Riverdale',
+                'state' => 'CA',
+                'postal_code' => '90001',
+                'country' => 'US',
+            ],
+        ]);
+
+        $memberWithoutPrimary = Member::factory()->create(['tenant_id' => $tenant->id]);
+
+        FamilyMember::create([
+            'tenant_id' => $tenant->id,
+            'family_id' => $familyWithoutPrimary->id,
+            'member_id' => $memberWithoutPrimary->id,
+            'relationship' => 'child',
+            'is_primary_contact' => false,
+            'is_emergency_contact' => false,
+        ]);
+
         $response = $this
             ->withHeader('X-Tenant-ID', $tenant->uuid)
             ->getJson('/api/v1/families/analytics');
@@ -49,7 +71,10 @@ class FamilyAnalyticsTest extends TestCase
             'size_distribution',
             'by_relationship',
             'recent_families',
+            'families_missing_primary',
         ]);
+
+        $response->assertJsonPath('families_missing_primary.0.family_name', $familyWithoutPrimary->family_name);
     }
 
     public function test_family_analytics_export_streams_csv(): void

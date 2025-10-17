@@ -38,6 +38,8 @@ interface BarChartCardProps {
   data: AnalyticsDatum[];
   color?: string;
   height?: number;
+  onBarClick?: (datum: AnalyticsDatum) => void;
+  valueFormatter?: (value: number) => string;
 }
 
 export function AnalyticsBarChartCard({
@@ -45,6 +47,8 @@ export function AnalyticsBarChartCard({
   data,
   color = "#1e293b",
   height = 260,
+  onBarClick,
+  valueFormatter,
 }: BarChartCardProps) {
   return (
     <section className="rounded border border-slate-200 p-4">
@@ -61,8 +65,22 @@ export function AnalyticsBarChartCard({
                 tickLine={false}
                 axisLine={false}
               />
-              <Tooltip cursor={{ fill: "rgba(148, 163, 184, 0.15)" }} />
-              <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
+              <Tooltip
+                cursor={{ fill: "rgba(148, 163, 184, 0.15)" }}
+                formatter={(value: number) =>
+                  valueFormatter ? valueFormatter(value) : value.toString()
+                }
+              />
+              <Bar
+                dataKey="value"
+                fill={color}
+                radius={[4, 4, 0, 0]}
+                onClick={(payload) => {
+                  if (!onBarClick || !payload?.payload) return;
+                  onBarClick(payload.payload as AnalyticsDatum);
+                }}
+                cursor={onBarClick ? "pointer" : "default"}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -79,6 +97,7 @@ interface AreaChartCardProps {
   stroke?: string;
   fill?: string;
   height?: number;
+  valueFormatter?: (value: number) => string;
 }
 
 export function AnalyticsAreaChartCard({
@@ -87,6 +106,7 @@ export function AnalyticsAreaChartCard({
   stroke = "#0284c7",
   fill = "#bae6fd",
   height = 260,
+  valueFormatter,
 }: AreaChartCardProps) {
   return (
     <section className="rounded border border-slate-200 p-4">
@@ -103,7 +123,12 @@ export function AnalyticsAreaChartCard({
                 tickLine={false}
                 axisLine={false}
               />
-              <Tooltip cursor={{ stroke, strokeWidth: 1 }} />
+              <Tooltip
+                cursor={{ stroke, strokeWidth: 1 }}
+                formatter={(value: number) =>
+                  valueFormatter ? valueFormatter(value) : value.toString()
+                }
+              />
               <Area
                 type="monotone"
                 dataKey="value"
