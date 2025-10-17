@@ -64,7 +64,7 @@ Tenant-aware Artisan commands let you run maintenance tasks without hand-rolling
 - `tenant:run {tenant} <command …>` executes any Artisan command for a single tenant (ID, UUID, or slug). Example (local PHP):  
   `php artisan tenant:run example queue:work --once`
 - `tenant:seed {tenant} [--class=DemoSeeder] [--database=foo]` ensures the tenant context is set while running seeders.
-- `tenant:run-batch <command …>` targets many tenants at once with filters such as `--plan`, `--status`, `--tenant`, `--except`, or the shortcut `--only-active`. Extra ergonomics include `--chunk`, `--delay`, `--pretend`, `--stop-on-failure`, and a per-run success/failure summary.
+- `tenant:run-batch <command …>` targets many tenants at once with filters such as `--plan`, `--status`, `--tenant`, `--except`, or the shortcut `--only-active`. Extra ergonomics include `--chunk`, `--delay`, `--pretend`, `--stop-on-failure`, interactive confirmation via `--confirm` (pair with `--yes` for non-interactive automation), and machine-readable summaries with `--format=json` (includes any identifiers skipped by filters).
 
 ### Sail examples
 ```bash
@@ -72,6 +72,8 @@ Tenant-aware Artisan commands let you run maintenance tasks without hand-rolling
 ./vendor/bin/sail artisan tenant:run example cache:clear
 ./vendor/bin/sail artisan tenant:seed example --class=VolunteerSeeder
 ./vendor/bin/sail artisan tenant:run-batch cache:clear --plan=standard --pretend
+./vendor/bin/sail artisan tenant:run-batch queue:restart --only-active --confirm
+./vendor/bin/sail artisan tenant:run-batch reports:generate --format=json --tenant=example
 ```
 
 If you need to pass additional Artisan flags, append them after the command (`tenant:run example queue:restart --force`). When using Sail, keep the `sail up` step separate—passing command options to `sail up` produces “unknown flag” errors.
