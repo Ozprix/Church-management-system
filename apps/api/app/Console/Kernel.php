@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Console\Commands\ProcessTrialExpirationsCommand;
+use App\Console\Commands\RbacSyncCommand;
 use App\Console\Commands\RunRecurringDonations;
 use App\Console\Commands\RunVisitorFollowups;
 use App\Console\Commands\SendFamilyRemindersCommand;
@@ -25,6 +26,7 @@ class Kernel extends ConsoleKernel
         SendMemberStaleProfilesAlertCommand::class,
         RunMemberAnalyticsReportsCommand::class,
         SendVisitorOverdueRemindersCommand::class,
+        RbacSyncCommand::class,
         TenantRunBatchCommand::class,
         TenantRunCommand::class,
         TenantSeedCommand::class,

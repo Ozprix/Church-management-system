@@ -13,15 +13,16 @@ use Illuminate\Support\Facades\DB;
 
 class RbacManager
 {
-    public function syncRegistry(): void
+    public function syncRegistry(bool $prune = false): void
     {
         $modules = config('permissions.modules', []);
+        $trackedSlugs = [];
 
         foreach ($modules as $moduleKey => $module) {
             $permissions = Arr::get($module, 'permissions', []);
 
             foreach ($permissions as $slug => $meta) {
-                Permission::query()->updateOrCreate(
+                $record = Permission::query()->updateOrCreate(
                     ['slug' => $slug],
                     [
                         'name' => Arr::get($meta, 'name', $slug),
@@ -29,12 +30,14 @@ class RbacManager
                         'module' => $moduleKey,
                     ]
                 );
+
+                $trackedSlugs[] = $record->slug;
             }
         }
 
         $superPermission = config('permissions.super_permission', null);
         if ($superPermission) {
-            Permission::query()->updateOrCreate(
+            $record = Permission::query()->updateOrCreate(
                 ['slug' => $superPermission],
                 [
                     'name' => 'Super administrator access',
@@ -42,30 +45,63 @@ class RbacManager
                     'module' => 'system',
                 ]
             );
+
+            $trackedSlugs[] = $record->slug;
+        }
+
+        if ($prune) {
+            Permission::query()
+                ->whereNotIn('slug', array_unique($trackedSlugs))
+                ->delete();
         }
     }
 
     public function bootstrapTenant(Tenant $tenant): void
     {
-        DB::transaction(function () use ($tenant): void {
+        $this->syncTenant($tenant);
+    }
+
+    public function syncTenant(Tenant $tenant, bool $pruneRoles = false, bool $pruneFeatures = false): void
+    {
+        DB::transaction(function () use ($tenant, $pruneRoles, $pruneFeatures): void {
             $this->syncRegistry();
 
-            $modules = config('permissions.modules', []);
+            $modules = collect(config('permissions.modules', []));
+            $rolesConfig = config('permissions.roles', []);
 
-            foreach ($modules as $moduleKey => $module) {
-                TenantFeature::query()->updateOrCreate(
-                    ['tenant_id' => $tenant->id, 'feature' => $moduleKey],
-                    [
-                        'is_enabled' => (bool) Arr::get($module, 'enabled_by_default', true),
-                        'metadata' => [
-                            'label' => Arr::get($module, 'label'),
-                            'description' => Arr::get($module, 'description'),
-                        ],
-                    ]
-                );
+            $featureKeys = $modules
+                ->map(fn (array $module, string $key) => Arr::get($module, 'feature', $key))
+                ->values()
+                ->all();
+
+            $modules->each(function (array $moduleConfig, string $moduleKey) use ($tenant): void {
+                $featureKey = Arr::get($moduleConfig, 'feature', $moduleKey);
+
+                /** @var TenantFeature $feature */
+                $feature = TenantFeature::query()->firstOrNew([
+                    'tenant_id' => $tenant->id,
+                    'feature' => $featureKey,
+                ]);
+
+                if (! $feature->exists && $feature->is_enabled === null) {
+                    $feature->is_enabled = (bool) Arr::get($moduleConfig, 'enabled_by_default', true);
+                }
+
+                $feature->metadata = [
+                    'label' => Arr::get($moduleConfig, 'label'),
+                    'description' => Arr::get($moduleConfig, 'description'),
+                ];
+
+                $feature->save();
+            });
+
+            if ($pruneFeatures) {
+                TenantFeature::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->whereNotIn('feature', $featureKeys)
+                    ->delete();
             }
 
-            $rolesConfig = config('permissions.roles', []);
             $permissions = Permission::query()->pluck('id', 'slug');
 
             foreach ($rolesConfig as $slug => $roleConfig) {
@@ -79,6 +115,7 @@ class RbacManager
                         'name' => Arr::get($roleConfig, 'name', $slug),
                         'description' => Arr::get($roleConfig, 'description'),
                         'is_default' => (bool) Arr::get($roleConfig, 'is_default', false),
+                        'metadata' => Arr::get($roleConfig, 'metadata', []),
                     ]
                 );
 
@@ -91,6 +128,13 @@ class RbacManager
 
                 $permissionIds = $permissions->only($grants->all())->values();
                 $role->permissions()->sync($permissionIds);
+            }
+
+            if ($pruneRoles) {
+                Role::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->whereNotIn('slug', array_keys($rolesConfig))
+                    ->delete();
             }
         });
     }
@@ -141,5 +185,62 @@ class RbacManager
         $module = Arr::get(config('permissions.modules'), $feature);
 
         return (bool) Arr::get($module, 'enabled_by_default', true);
+    }
+
+    public function featureStatesForTenant(Tenant $tenant): Collection
+    {
+        $modules = collect(config('permissions.modules', []));
+
+        $featureRecords = TenantFeature::query()
+            ->where('tenant_id', $tenant->id)
+            ->get()
+            ->keyBy('feature');
+
+        return $modules->mapWithKeys(function (array $moduleConfig, string $moduleKey) use ($featureRecords) {
+            $featureKey = Arr::get($moduleConfig, 'feature', $moduleKey);
+            $feature = $featureRecords->get($featureKey);
+
+            return [
+                $moduleKey => [
+                    'module' => $moduleKey,
+                    'feature' => $featureKey,
+                    'label' => Arr::get($moduleConfig, 'label'),
+                    'description' => Arr::get($moduleConfig, 'description'),
+                    'is_enabled' => $feature
+                        ? (bool) $feature->is_enabled
+                        : (bool) Arr::get($moduleConfig, 'enabled_by_default', true),
+                    'metadata' => $feature?->metadata ?? [
+                        'label' => Arr::get($moduleConfig, 'label'),
+                        'description' => Arr::get($moduleConfig, 'description'),
+                    ],
+                ],
+            ];
+        });
+    }
+
+    public function enrichPermissionsWithMetadata(Collection $permissions, ?Tenant $tenant = null): void
+    {
+        if ($permissions->isEmpty()) {
+            return;
+        }
+
+        $modules = collect(config('permissions.modules', []));
+        $featureStates = $tenant
+            ? $this->featureStatesForTenant($tenant)->mapWithKeys(fn (array $state) => [$state['feature'] => $state])
+            : collect();
+
+        $permissions->each(function (Permission $permission) use ($modules, $featureStates): void {
+            $moduleConfig = $modules->get($permission->module, []);
+            $featureKey = Arr::get($moduleConfig, 'feature', $permission->module);
+            $featureState = $featureStates->get($featureKey);
+
+            $permission->setAttribute('module_metadata', [
+                'key' => $permission->module,
+                'label' => Arr::get($moduleConfig, 'label'),
+                'description' => Arr::get($moduleConfig, 'description'),
+                'feature' => $featureKey,
+                'is_enabled' => $featureState['is_enabled'] ?? (bool) Arr::get($moduleConfig, 'enabled_by_default', true),
+            ]);
+        });
     }
 }
