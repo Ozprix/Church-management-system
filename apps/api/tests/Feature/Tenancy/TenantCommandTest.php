@@ -197,20 +197,19 @@ class TenantCommandTest extends TestCase
     protected function decodeSummaryFromArtisanOutput(): array
     {
         $output = Artisan::output();
-        $lines = array_values(array_filter(array_map('trim', explode(PHP_EOL, $output))));
+        $start = strpos($output, '{');
+        $end = strrpos($output, '}');
 
-        foreach (array_reverse($lines) as $line) {
-            if ($line === '') {
-                continue;
-            }
+        if ($start !== false && $end !== false && $end >= $start) {
+            $json = substr($output, $start, $end - $start + 1);
 
             try {
                 /** @var array<string, mixed> $decoded */
-                $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+                $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
 
                 return $decoded;
             } catch (JsonException $exception) {
-                continue;
+                // fall through to failure below
             }
         }
 
