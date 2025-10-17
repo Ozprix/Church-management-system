@@ -78,6 +78,13 @@ Tenant-aware Artisan commands let you run maintenance tasks without hand-rolling
 
 If you need to pass additional Artisan flags, append them after the command (`tenant:run example queue:restart --force`). When using Sail, keep the `sail up` step separate—passing command options to `sail up` produces “unknown flag” errors.
 
+## 8. RBAC Toolkit
+- `php artisan rbac:sync [--tenant=<id|uuid|slug>] [--prune-roles] [--prune-features] [--prune-permissions]` keeps global permissions, tenant roles, and feature toggles aligned with `config/permissions.php`. Pair with `tenant:run-batch` for bulk execution once multi-tenant automation is needed.
+- API endpoints (auth + `rbac.view` permission required):
+  - `GET /api/v1/rbac/roles` returns tenant roles, assigned permissions, default status, and user counts.
+  - `GET /api/v1/rbac/permissions` lists permission metadata grouped by module alongside current feature enablement.
+- Seeders automatically call the RBAC sync workflow, so new environments and demo tenants include a consistent registry out of the box.
+
 ### Member Imports
 - `POST /api/v1/members/bulk-import` supports JSON payloads (max 50 records per request) for synchronous creation; requests are throttled (`10/min`) to keep load predictable.
 - For larger batches, upload a CSV via `POST /api/v1/member-imports` (fields: `first_name`, `last_name`, optional `membership_status`, `email`). The upload stores a `member_import` record, queues an async job (`imports` queue), and returns a stub resource with status `pending`.
@@ -95,12 +102,12 @@ If you need to pass additional Artisan flags, append them after the command (`te
   Ensure Sanctum cookie domain/settings match your local host (update Laravel `.env` for `SESSION_DOMAIN` / `SANCTUM_STATEFUL_DOMAINS`). Start the API (`sail up`) and sign in via `/login`, then navigate to `/members`, `/families/analytics`, or `/finance/analytics` to verify end-to-end cookies.
   The default seeded admin user is `admin@example.com` with password `password` (see `DatabaseSeeder`).
 
-## 8. Next Actions
+## 9. Next Actions
 - Install dependencies (`pnpm install`) after corepack/pnpm is enabled and network access is available.
 - Populate Laravel tenancy middleware and Next.js application shells following `docs/architecture.md`.
 - Keep generated contracts in sync by updating `packages/contracts/openapi/church.json` and re-running the generator script.
 
-## 9. Two-Factor Authentication Workflow
+## 10. Two-Factor Authentication Workflow
 - Login requests (`POST /api/v1/auth/login`) now issue a single active Sanctum token per user. When 2FA is enabled, include either `code` (TOTP) or `recovery_code`.
 - Enable 2FA: `POST /api/v1/auth/two-factor/setup` (returns secret + recovery codes) followed by `POST /api/v1/auth/two-factor/confirm` with a valid TOTP code.
 - Regenerate recovery codes: `POST /api/v1/auth/two-factor/recovery-codes` with a current TOTP code.
