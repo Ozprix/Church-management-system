@@ -17,6 +17,11 @@ class TenantRunBatchCommand extends Command
     use ResolvesTenants;
     use RunsInTenantContext;
 
+    protected string $outputFormat = 'human';
+
+    /** @var array<int, string> */
+    protected array $skippedFilterIdentifiers = [];
+
     protected $signature = 'tenant:run-batch
         {artisan_command* : Artisan command name followed by arguments and options}
         {--tenant=* : Limit execution to specific tenant identifiers}
@@ -27,7 +32,10 @@ class TenantRunBatchCommand extends Command
         {--chunk=50 : Process tenants in chunks of this size}
         {--delay=0 : Delay in milliseconds between tenant executions}
         {--stop-on-failure : Halt execution when a tenant command fails}
-        {--pretend : Output the intended actions without executing the command}';
+        {--pretend : Output the intended actions without executing the command}
+        {--confirm : Require confirmation before executing commands}
+        {--yes : Automatically confirm prompts triggered by --confirm}
+        {--format=human : Output format for the final summary (human, json)}';
 
     protected $description = 'Execute an Artisan command for multiple tenants with filtering and batching support.';
 
@@ -51,6 +59,16 @@ class TenantRunBatchCommand extends Command
 
             return self::FAILURE;
         }
+
+        $format = strtolower((string) ($this->option('format') ?? 'human'));
+        if (! in_array($format, ['human', 'json'], true)) {
+            $this->error("Unsupported --format value [{$format}]. Allowed values: human, json.");
+
+            return self::FAILURE;
+        }
+
+        $this->outputFormat = $format;
+        $this->skippedFilterIdentifiers = [];
 
         $query = Tenant::query()->orderBy('id');
 
@@ -83,7 +101,19 @@ class TenantRunBatchCommand extends Command
         $tenantCount = (clone $query)->count();
 
         if ($tenantCount === 0) {
-            $this->warn('No tenants matched the provided filters.');
+            if ($format === 'json') {
+                $this->line(json_encode([
+                    'processed' => 0,
+                    'succeeded' => 0,
+                    'failed' => 0,
+                    'pretend' => (bool) $this->option('pretend'),
+                    'stop_on_failure' => (bool) $this->option('stop-on-failure'),
+                    'failures' => [],
+                    'skipped_filters' => $this->skippedFilterIdentifiers,
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            } else {
+                $this->warn('No tenants matched the provided filters.');
+            }
 
             return self::SUCCESS;
         }
@@ -92,16 +122,30 @@ class TenantRunBatchCommand extends Command
         $delayMs = max(0, (int) ($this->option('delay') ?? 0));
         $stopOnFailure = (bool) $this->option('stop-on-failure');
         $pretend = (bool) $this->option('pretend');
+        $requiresConfirmation = (bool) $this->option('confirm');
+        $assumeYes = (bool) $this->option('yes');
+        $rawCommand = $commandName . ($commandParts ? ' ' . implode(' ', $commandParts) : '');
 
-        $this->info("Executing [{$commandName}] for {$tenantCount} tenant(s).");
-        if ($pretend) {
-            $this->comment('Pretend mode enabled - no commands will be executed.');
+        if ($format === 'human') {
+            $this->info("Executing [{$commandName}] for {$tenantCount} tenant(s).");
+            if ($pretend) {
+                $this->comment('Pretend mode enabled - no commands will be executed.');
+            }
+        }
+
+        if (! $pretend && $requiresConfirmation && ! $assumeYes && ! $this->isNonInteractive()) {
+            if (! $this->confirm("Execute [{$rawCommand}] for {$tenantCount} tenant(s)?")) {
+                if ($format === 'human') {
+                    $this->warn('Execution cancelled.');
+                }
+
+                return self::FAILURE;
+            }
         }
 
         $processed = 0;
         $successCount = 0;
         $failures = [];
-        $rawCommand = $commandName . ($commandParts ? ' ' . implode(' ', $commandParts) : '');
         $stopProcessing = false;
 
         $query->chunkById($chunkSize, function ($tenants) use (
@@ -114,7 +158,8 @@ class TenantRunBatchCommand extends Command
             $delayMs,
             $stopOnFailure,
             $pretend,
-            $rawCommand
+            $rawCommand,
+            $format
         ) {
             foreach ($tenants as $tenant) {
                 if ($stopProcessing) {
@@ -124,10 +169,14 @@ class TenantRunBatchCommand extends Command
                 ++$processed;
                 $slugOrFallback = $tenant->slug ?: ($tenant->uuid ?: 'no-slug');
                 $label = "{$tenant->id} ({$slugOrFallback})";
-                $this->line("[{$processed}] Tenant {$label}");
+                if ($format === 'human') {
+                    $this->line("[{$processed}] Tenant {$label}");
+                }
 
                 if ($pretend) {
-                    $this->comment(" └─ Would run: {$rawCommand}");
+                    if ($format === 'human') {
+                        $this->comment(" └─ Would run: {$rawCommand}");
+                    }
                     ++$successCount;
 
                     continue;
@@ -146,7 +195,9 @@ class TenantRunBatchCommand extends Command
                         'exitCode' => $exitCode,
                     ];
 
-                    $this->error(" └─ Command failed with exit code {$exitCode}.");
+                    if ($format === 'human') {
+                        $this->error(" └─ Command failed with exit code {$exitCode}.");
+                    }
 
                     if ($stopOnFailure) {
                         $stopProcessing = true;
@@ -157,7 +208,9 @@ class TenantRunBatchCommand extends Command
                     continue;
                 }
 
-                $this->info(' └─ Command completed successfully.');
+                if ($format === 'human') {
+                    $this->info(' └─ Command completed successfully.');
+                }
                 ++$successCount;
 
                 if ($delayMs > 0) {
@@ -177,31 +230,62 @@ class TenantRunBatchCommand extends Command
             $pretend ? ' (pretend mode)' : ''
         );
 
-        if ($failedCount > 0) {
-            $this->warn($summaryMessage);
+        $failureDetails = array_map(
+            function ($failure) {
+                /** @var Tenant $tenant */
+                $tenant = $failure['tenant'];
+
+                return [
+                    'tenant_id' => $tenant->id,
+                    'tenant_slug' => $tenant->slug,
+                    'tenant_uuid' => $tenant->uuid,
+                    'exit_code' => Arr::get($failure, 'exitCode'),
+                ];
+            },
+            $failures
+        );
+
+        $summaryPayload = [
+            'processed' => $processed,
+            'succeeded' => $successCount,
+            'failed' => $failedCount,
+            'pretend' => $pretend,
+            'stop_on_failure' => $stopOnFailure,
+            'failures' => $failureDetails,
+            'skipped_filters' => $this->skippedFilterIdentifiers,
+        ];
+
+        if ($format === 'json') {
+            $this->line(json_encode($summaryPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         } else {
-            $this->info($summaryMessage);
+            if ($failedCount > 0) {
+                $this->warn($summaryMessage);
+            } else {
+                $this->info($summaryMessage);
+            }
+
+            if (! empty($failures)) {
+                $this->error(sprintf('%d tenant(s) reported failures.', count($failures)));
+
+                foreach ($failures as $failure) {
+                    /** @var Tenant $tenant */
+                    $tenant = $failure['tenant'];
+                    $exitCode = Arr::get($failure, 'exitCode');
+                    $this->error(sprintf(
+                        ' - Tenant #%d (%s) exit code: %s',
+                        $tenant->id,
+                        $tenant->slug ?? $tenant->uuid ?? $tenant->name,
+                        $exitCode
+                    ));
+                }
+            } else {
+                $this->info('All tenant commands completed successfully.');
+            }
         }
 
         if (! empty($failures)) {
-            $this->error(sprintf('%d tenant(s) reported failures.', count($failures)));
-
-            foreach ($failures as $failure) {
-                /** @var Tenant $tenant */
-                $tenant = $failure['tenant'];
-                $exitCode = Arr::get($failure, 'exitCode');
-                $this->error(sprintf(
-                    ' - Tenant #%d (%s) exit code: %s',
-                    $tenant->id,
-                    $tenant->slug ?? $tenant->uuid ?? $tenant->name,
-                    $exitCode
-                ));
-            }
-
             return self::FAILURE;
         }
-
-        $this->info('All tenant commands completed successfully.');
 
         return self::SUCCESS;
     }
@@ -229,7 +313,11 @@ class TenantRunBatchCommand extends Command
                 continue;
             }
 
-            $this->warn("Tenant [{$identifier}] provided via --{$context} was not found and will be skipped.");
+            $this->skippedFilterIdentifiers[] = "{$context}:{$identifier}";
+
+            if ($this->outputFormat === 'human') {
+                $this->warn("Tenant [{$identifier}] provided via --{$context} was not found and will be skipped.");
+            }
         }
 
         return array_values(array_unique($resolved));
@@ -266,5 +354,10 @@ class TenantRunBatchCommand extends Command
         }
 
         return $definition !== null;
+    }
+
+    protected function isNonInteractive(): bool
+    {
+        return (bool) $this->input->getOption('no-interaction') || (bool) $this->input->getOption('quiet');
     }
 }
