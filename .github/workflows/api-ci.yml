@@ -1,0 +1,65 @@
+name: API CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/api-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/api-ci.yml'
+
+jobs:
+  tests:
+    name: Run Laravel Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, intl, pdo_sqlite
+          ini-values: post_max_size=256M, memory_limit=1G
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: apps/api/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          APP_KEY=$(grep '^APP_KEY=' .env | cut -d '=' -f2-)
+          cat <<EOF > .env.testing
+          APP_ENV=testing
+          APP_KEY=${APP_KEY}
+          APP_DEBUG=true
+          DB_CONNECTION=sqlite
+          DB_DATABASE=testing
+          CACHE_DRIVER=array
+          QUEUE_CONNECTION=sync
+          SESSION_DRIVER=array
+          MAIL_MAILER=array
+          SANCTUM_STATEFUL_DOMAINS=localhost
+          EOF
+
+      - name: Run test suite
+        run: php artisan test --ansi
