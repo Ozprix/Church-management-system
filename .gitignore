@@ -242,3 +242,9 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,linux,macos,visualstudiocode
 node_modules
+
+# Local ignored files
+.git-repo/
+apps/api/.env.example
+apps/api/storage/logs/
+pnpm-lock.yaml
