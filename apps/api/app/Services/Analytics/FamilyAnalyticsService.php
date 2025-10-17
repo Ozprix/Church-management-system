@@ -20,6 +20,8 @@ class FamilyAnalyticsService
      *     min_members?: int|null,
      *     max_members?: int|null,
      *     with_primary_contact?: bool|null,
+     *     city?: string|null,
+     *     state?: string|null,
      *     created_from?: ?Carbon,
      *     created_to?: ?Carbon
      * }
@@ -44,10 +46,15 @@ class FamilyAnalyticsService
             $createdTo = Carbon::make($query['created_to'])?->endOfDay();
         }
 
+        $city = isset($query['city']) && $query['city'] !== '' ? $query['city'] : null;
+        $state = isset($query['state']) && $query['state'] !== '' ? $query['state'] : null;
+
         return [
             'min_members' => $minMembers,
             'max_members' => $maxMembers,
             'with_primary_contact' => $withPrimary,
+            'city' => $city,
+            'state' => $state,
             'created_from' => $createdFrom,
             'created_to' => $createdTo,
         ];
@@ -71,6 +78,14 @@ class FamilyAnalyticsService
             } else {
                 $query->whereDoesntHave('familyMembers', fn ($inner) => $inner->where('is_primary_contact', true));
             }
+        }
+
+        if (! empty($filters['city'])) {
+            $this->applyAddressFilter($query, 'city', $filters['city']);
+        }
+
+        if (! empty($filters['state'])) {
+            $this->applyAddressFilter($query, 'state', $filters['state']);
         }
 
         if (! empty($filters['min_members'])) {
@@ -121,6 +136,21 @@ class FamilyAnalyticsService
                 ];
             });
 
+        $familiesMissingPrimary = $this->applyFilters(Family::query(), $filters)
+            ->whereDoesntHave('familyMembers', fn ($inner) => $inner->where('is_primary_contact', true))
+            ->withCount('members')
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(function (Family $family) {
+                return [
+                    'id' => $family->id,
+                    'family_name' => $family->family_name,
+                    'members_count' => (int) $family->members_count,
+                    'created_at' => optional($family->created_at)->toIso8601String(),
+                ];
+            });
+
         return [
             'totals' => [
                 'families' => $totalFamilies,
@@ -131,6 +161,7 @@ class FamilyAnalyticsService
             'size_distribution' => $sizeDistribution,
             'by_relationship' => $relationshipBreakdown,
             'recent_families' => $recentFamilies,
+            'families_missing_primary' => $familiesMissingPrimary,
         ];
     }
 
@@ -184,5 +215,18 @@ class FamilyAnalyticsService
             ])
             ->values()
             ->all();
+    }
+
+    protected function applyAddressFilter(Builder $query, string $path, string $value): void
+    {
+        $valueLower = strtolower($value) . '%';
+        $driver = $query->getConnection()->getDriverName();
+        $jsonPath = '$.' . $path;
+
+        if (in_array($driver, ['mysql', 'mariadb'])) {
+            $query->whereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(address, '" . $jsonPath . "'))) LIKE ?", [$valueLower]);
+        } else {
+            $query->whereRaw("LOWER(json_extract(address, '" . $jsonPath . "')) LIKE ?", [$valueLower]);
+        }
     }
 }
