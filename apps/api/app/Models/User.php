@@ -86,11 +86,11 @@ class User extends Authenticatable
 
     public function hasPermission(string $permissionSlug): bool
     {
-        if ($permissionSlug === '*') {
-            return true;
-        }
-
         $permissions = $this->allPermissionSlugs();
+
+        if ($permissionSlug === '*') {
+            return $permissions->contains('*');
+        }
 
         if ($permissions->contains($permissionSlug)) {
             return true;
