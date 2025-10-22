@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Rbac;
 
 use App\Models\Tenant;
+use App\Models\User;
+use App\Services\Rbac\RbacManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class RbacHttpTest extends TestCase
@@ -15,13 +19,15 @@ class RbacHttpTest extends TestCase
     public function test_roles_endpoint_returns_roles_with_permissions(): void
     {
         $tenant = Tenant::factory()->create();
-        $user = $this->actingAsTenantUser(
+        $this->actingAsTenantUser(
             tenant: $tenant,
             roles: ['tenant_owner'],
             grantSuperPermission: false
         );
 
-        $response = $this->getJson('/api/v1/rbac/roles');
+        $response = $this
+            ->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->getJson('/api/v1/rbac/roles');
 
         $response->assertOk();
         $response->assertJsonStructure([
@@ -50,13 +56,31 @@ class RbacHttpTest extends TestCase
     public function test_permissions_endpoint_requires_permission(): void
     {
         $tenant = Tenant::factory()->create();
-        $this->actingAsTenantUser(
-            tenant: $tenant,
-            roles: ['member_manager'],
-            grantSuperPermission: false
+
+        /** @var RbacManager $manager */
+        $manager = app(RbacManager::class);
+        $manager->bootstrapTenant($tenant);
+
+        $user = User::factory()->create([
+            'tenant_id' => $tenant->id,
+        ]);
+
+        Sanctum::actingAs($user->fresh(), ['default']);
+
+        $this->assertFalse(
+            $user->allPermissionSlugs()->contains('rbac.view'),
+            'Unaffiliated user should not have rbac.view permission.'
         );
 
-        $this->getJson('/api/v1/rbac/permissions')->assertForbidden();
+        $this->assertFalse(
+            Gate::forUser($user)->allows('rbac.view'),
+            'Gate should deny rbac.view for unaffiliated user.'
+        );
+
+        $this
+            ->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->getJson('/api/v1/rbac/permissions')
+            ->assertForbidden();
     }
 
     public function test_permissions_endpoint_returns_permission_registry(): void
@@ -68,7 +92,9 @@ class RbacHttpTest extends TestCase
             grantSuperPermission: false
         );
 
-        $response = $this->getJson('/api/v1/rbac/permissions');
+        $response = $this
+            ->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->getJson('/api/v1/rbac/permissions');
 
         $response->assertOk();
 

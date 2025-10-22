@@ -102,12 +102,18 @@ If you need to pass additional Artisan flags, append them after the command (`te
   Ensure Sanctum cookie domain/settings match your local host (update Laravel `.env` for `SESSION_DOMAIN` / `SANCTUM_STATEFUL_DOMAINS`). Start the API (`sail up`) and sign in via `/login`, then navigate to `/members`, `/families/analytics`, or `/finance/analytics` to verify end-to-end cookies.
   The default seeded admin user is `admin@example.com` with password `password` (see `DatabaseSeeder`).
 
-## 9. Next Actions
+## 9. API Container & CI
+- Production Dockerfile lives at `apps/api/docker/Dockerfile` with a non-root runtime user and cache-warming entrypoint.
+- Build locally via `docker build -f docker/Dockerfile -t church-api:local apps/api`.
+- GitHub Actions (`api-container.yml`) builds the image and performs a Trivy scan on every PR/push to `dev`.
+- See `docs/devops.md` for the full DevOps guide and `docs/secrets-management.md` for handling encrypted `.env` files with SOPS.
+
+## 10. Next Actions
 - Install dependencies (`pnpm install`) after corepack/pnpm is enabled and network access is available.
 - Populate Laravel tenancy middleware and Next.js application shells following `docs/architecture.md`.
 - Keep generated contracts in sync by updating `packages/contracts/openapi/church.json` and re-running the generator script.
 
-## 10. Two-Factor Authentication Workflow
+## 11. Two-Factor Authentication Workflow
 - Login requests (`POST /api/v1/auth/login`) now issue a single active Sanctum token per user. When 2FA is enabled, include either `code` (TOTP) or `recovery_code`.
 - Enable 2FA: `POST /api/v1/auth/two-factor/setup` (returns secret + recovery codes) followed by `POST /api/v1/auth/two-factor/confirm` with a valid TOTP code.
 - Regenerate recovery codes: `POST /api/v1/auth/two-factor/recovery-codes` with a current TOTP code.
