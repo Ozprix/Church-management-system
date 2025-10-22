@@ -196,6 +196,22 @@ return [
                 ],
             ],
         ],
+        'rbac' => [
+            'feature' => 'rbac',
+            'label' => 'Roles & Permissions',
+            'description' => 'Review and administer tenant roles, permissions, and feature access.',
+            'enabled_by_default' => true,
+            'permissions' => [
+                'rbac.view' => [
+                    'name' => 'View role & permission registry',
+                    'description' => 'Inspect tenant role assignments, permissions, and feature toggles.',
+                ],
+                'rbac.manage' => [
+                    'name' => 'Manage role & permission registry',
+                    'description' => 'Modify tenant roles, permissions, and feature availability.',
+                ],
+            ],
+        ],
         'finance' => [
             'feature' => 'finance',
             'label' => 'Finance & Giving',
@@ -276,6 +292,8 @@ return [
                 'tenancy.view_plans',
                 'tenancy.manage_onboarding',
                 'tenancy.manage_plans',
+                'rbac.view',
+                'rbac.manage',
                 'compliance.view_audit_logs',
                 'compliance.manage_retention',
                 'users.manage_security',

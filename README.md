@@ -1,72 +1,192 @@
-# Church Management SaaS Platform
+# 🏛️ Church Management SaaS Platform
 
-Comprehensive multi-tenant church management system blueprint covering membership, finance, events, communications, volunteer coordination, and analytics. The repository now includes the initial monorepo scaffolding so the Laravel API, Next.js PWA, and shared packages can be generated consistently across environments.
+A **comprehensive multi-tenant church management system** blueprint covering membership, finance, events, communications, volunteer coordination, and analytics.
 
-## Highlights
-- Multi-tenant SaaS with strict row-level isolation enforced by `tenant_id`.
-- Modular Laravel backend + Next.js PWA frontend using Tailwind CSS.
-- Shared workspace packages for UI components, utilities, and generated API contracts.
-- Security-first posture with RBAC, 2FA, encryption, auditing, compliance considerations.
-- Ready for integrations (Stripe, PayPal, Twilio/Vonage, Mailgun/SendGrid) and scalable on cloud infrastructure.
+This monorepo includes scaffolding so the **Laravel API**, **Next.js PWA**, and **shared packages** can be generated consistently across environments.
 
-## Repository Layout
-```
+---
+
+## ✨ Highlights
+
+- 🧩 **Multi-tenant SaaS** with strict row-level isolation enforced by `tenant_id`
+- ⚙️ **Modular architecture:** Laravel backend + Next.js PWA frontend (Tailwind CSS)
+- 🧱 **Shared workspace packages** for UI components, utilities, and generated API contracts
+- 🔒 **Security-first posture:** RBAC, 2FA, encryption, auditing, and compliance
+- ☁️ **Cloud-ready design:** integrates with Stripe, PayPal, Twilio/Vonage, Mailgun/SendGrid
+
+---
+
+## 🗂️ Repository Layout
+
+```text
 root/
 ├─ apps/
-│  ├─ api/                 # Laravel service (generated via bootstrap script)
-│  └─ web/                 # Next.js PWA (generated via bootstrap script)
+│  ├─ api/        # Laravel service (generated via bootstrap script)
+│  └─ web/        # Next.js PWA (generated via bootstrap script)
 ├─ packages/
-│  ├─ ui/                  # Shared React component library scaffold
-│  ├─ utils/               # Shared TypeScript utility helpers scaffold
-│  └─ contracts/           # OpenAPI schemas & API client scaffold
+│  ├─ ui/         # Shared React component library scaffold
+│  ├─ utils/      # Shared TypeScript utility helpers scaffold
+│  └─ contracts/  # OpenAPI schemas & API client scaffold
 ├─ infra/
-│  ├─ terraform/           # Infrastructure as code modules (network, RDS, Redis, S3)
-│  └─ cicd/                # CI/CD pipelines and container assets
-├─ docs/                   # Architecture, database design, roadmap, ADRs
+│  ├─ terraform/  # Infrastructure as code modules (network, RDS, Redis, S3)
+│  └─ cicd/       # CI/CD pipelines and container assets
+├─ docs/          # Architecture, database design, roadmap, ADRs
 └─ tools/
-   ├─ scripts/             # Bootstrap helpers for api/web
-   └─ seeders/             # Placeholder for demo data tooling
+   ├─ scripts/    # Bootstrap helpers for api/web
+   └─ seeders/    # Demo data tooling
 ```
 
-## Prerequisites
-- Node.js 18+ with `corepack` enabled (for pnpm).
-- Docker Desktop (for Laravel Sail bootstrap via Composer container).
-- Internet access when running bootstrap scripts (downloads dependencies/images).
+---
 
-## Getting Started
+## 🧰 Prerequisites
+
+- **Node.js 18+** (with Corepack enabled for `pnpm`)
+- **Docker Desktop** (for Laravel Sail bootstrap via Composer container)
+- **Internet access** for downloading dependencies and images
+
+---
+
+## ⚡ Getting Started
+
 ```bash
-corepack enable pnpm              # once per machine
-make bootstrap-all                # generates Laravel + Next.js apps
-# or run targets individually:
+# Enable pnpm (once per machine)
+corepack enable pnpm
+
+# Bootstrap full stack
+make bootstrap-all
+
+# Or run targets individually
 make bootstrap-api
 make bootstrap-web
 ```
 
 After scaffolding:
-- `cd apps/api && cp .env.example .env && php artisan key:generate` (once Sail containers are up).
-- `cd apps/web && cp .env.local.example .env.local && pnpm dev` to start the PWA.
 
-Workspace scripts:
 ```bash
-pnpm dev        # currently proxies to pnpm --filter web dev
-pnpm lint       # run lint tasks once configured in sub-packages
-pnpm test       # run workspace tests (placeholders for now)
+# Laravel setup
+cd apps/api
+cp .env.example .env
+php artisan key:generate
+
+# Next.js setup
+cd ../web
+cp .env.local.example .env.local
+pnpm dev
 ```
 
-## Shared Packages
-- `@church/ui` exposes reusable React components configured for Tailwind.
-- `@church/utils` houses cross-application helpers (formatting, hooks, validation).
-- `@church/contracts` will contain generated API clients / DTOs from OpenAPI specs.
+---
 
-Each package ships with placeholder build scripts (`pnpm --filter <pkg> build`) and README guidance for next actions.
+## 🧭 Workspace Scripts
 
-## Next Steps
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Run development server (currently proxies to `apps/web`) |
+| `pnpm lint` | Run linting tasks (once configured) |
+| `pnpm test` | Execute workspace tests (placeholder for now) |
+
+---
+
+## 🧩 Shared Packages
+
+| Package | Purpose |
+| --- | --- |
+| `@church/ui` | Reusable React components pre-configured for Tailwind |
+| `@church/utils` | Cross-application helpers (formatting, hooks, validation) |
+| `@church/contracts` | Generated API clients / DTOs from OpenAPI specs |
+
+Each package includes placeholder build scripts (`pnpm --filter <pkg> build`) and internal README guidance.
+
+---
+
+## 🧱 Next Steps
+
 1. Run the bootstrap scripts to install Laravel and Next.js locally.
-2. Implement tenancy core (tenant discovery middleware, scoped ORM base) in `apps/api`.
-3. Set up authentication (Laravel Sanctum + Next.js session handling).
-4. Expand shared packages with real components/utilities as features are built.
-5. Follow the roadmap in `docs/roadmap.md` to deliver domain modules incrementally.
-6. Maintain ADRs for significant architectural decisions under `docs/adr/`.
+2. Implement tenancy core: discovery middleware and scoped ORM base models.
+3. Set up authentication: Laravel Sanctum for the API and session handling in Next.js.
+4. Expand shared packages with production-ready components and utilities.
+5. Follow `docs/roadmap.md` for incremental delivery of domain modules.
+6. Maintain ADRs under `docs/adr/` for key architectural decisions.
 
-Refer to documentation in `docs/` for detailed architecture, database schema, and implementation timeline guidance.
+---
 
+## 🧭 Documentation
+
+Check the `docs/` directory for:
+
+- Architecture overview
+- Database schema
+- Implementation timeline
+- Roadmap
+
+---
+
+## 🤝 Contributing
+
+```bash
+# Clone the repo & install dependencies
+
+# Branch from dev
+git checkout dev
+git pull
+git switch -c feature/<your-feature-name>
+
+# Make your changes and commit
+git add .
+git commit -m "feat: describe your change"
+
+# Push and open a Pull Request (feature → dev)
+git push origin feature/<your-feature-name>
+```
+
+---
+
+## 🧾 License
+
+This project is distributed under the MIT License. See `LICENSE` for details.
+
+---
+
+## 🛠️ Tech Stack Summary
+
+| Layer | Technology |
+| --- | --- |
+| Backend | Laravel (PHP 8.x) |
+| Frontend | Next.js (TypeScript + Tailwind CSS) |
+| Database | MySQL / PostgreSQL |
+| Infrastructure | Terraform + Docker |
+| CI/CD | GitHub Actions |
+| Cloud | AWS-ready (EC2, S3, RDS) |
+
+---
+
+## 🪶 Maintainer
+
+**Michael Kwame Adjei**  
+📍 Frankfurt, Germany  
+🎯 Building a scalable, community-driven church SaaS  
+🌐 [GitHub Profile](https://github.com/michaelkwameadjei)
+
+---
+
+### 🔍 Explanation of Improvements
+
+| Improvement | Why it matters |
+| --- | --- |
+| **Badges + emojis** | Adds visual appeal and easy section scanning |
+| **Headings and dividers** | Breaks content into digestible chunks |
+| **Code fences and tables** | Clarify commands and structures |
+| **Contributing section** | Guides collaborators through the proper Git workflow being practised |
+| **License + Maintainer** | Makes it public-ready |
+| **Tech stack summary table** | Helps recruiters and collaborators understand the system at a glance |
+
+---
+
+### 💡 Next Learning Step on GitHub
+
+Once you commit and push this new `README.md`:
+
+```bash
+git add README.md
+git commit -m "docs: improve README structure and formatting"
+git push
+```

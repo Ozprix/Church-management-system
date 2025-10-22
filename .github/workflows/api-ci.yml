@@ -1,21 +1,23 @@
 name: API CI
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/api/**'
-      - '.github/workflows/api-ci.yml'
   pull_request:
+    branches: [ dev, main ]
     paths:
-      - 'apps/api/**'
-      - '.github/workflows/api-ci.yml'
+      - "apps/api/**"
+      - ".github/workflows/api-ci.yml"
+  push:
+    branches: [ dev ]
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/api-ci.yml"
 
 jobs:
-  tests:
+  laravel-tests:
     name: Run Laravel Tests
     runs-on: ubuntu-latest
+
+    # All run steps inside apps/api
     defaults:
       run:
         working-directory: apps/api
@@ -27,39 +29,45 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: mbstring, bcmath, intl, pdo_sqlite
-          ini-values: post_max_size=256M, memory_limit=1G
+          php-version: "8.3"
+          extensions: mbstring, intl, pdo, pdo_sqlite, bcmath, openssl
           coverage: none
 
-      - name: Cache Composer dependencies
+      - name: Cache Composer deps
         uses: actions/cache@v4
         with:
-          path: apps/api/vendor
+          path: ~/.composer/cache/files
           key: ${{ runner.os }}-composer-${{ hashFiles('apps/api/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate --ansi
-          APP_KEY=$(grep '^APP_KEY=' .env | cut -d '=' -f2-)
-          cat <<EOF > .env.testing
-          APP_ENV=testing
-          APP_KEY=${APP_KEY}
-          APP_DEBUG=true
-          DB_CONNECTION=sqlite
-          DB_DATABASE=testing
-          CACHE_DRIVER=array
-          QUEUE_CONNECTION=sync
-          SESSION_DRIVER=array
-          MAIL_MAILER=array
-          SANCTUM_STATEFUL_DOMAINS=localhost
-          EOF
+      - name: Copy .env
+        run: cp .env.example .env
 
-      - name: Run test suite
-        run: php artisan test --ansi
+      - name: Generate app key
+        run: php artisan key:generate --force
+
+      - name: Prepare SQLite database
+        run: |
+          mkdir -p database
+          rm -f database/database.sqlite
+          touch database/database.sqlite
+
+      - name: Configure env for CI (SQLite)
+        run: |
+          {
+            echo "DB_CONNECTION=sqlite";
+            echo "DB_DATABASE=${GITHUB_WORKSPACE}/apps/api/database/database.sqlite";
+            echo "CACHE_DRIVER=array";
+            echo "SESSION_DRIVER=array";
+            echo "QUEUE_CONNECTION=sync";
+          } >> .env
+
+      # If your tests don't need real tables yet, you can comment this out
+      - name: Run migrations
+        run: php artisan migrate --no-interaction -vvv
+
+      - name: Run tests
+        run: php artisan test -q

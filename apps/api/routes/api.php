@@ -35,6 +35,8 @@ use App\Http\Controllers\Api\NotificationTemplateController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\FinanceAnalyticsController;
 use App\Http\Controllers\Api\FinanceAnalyticsExportController;
+use App\Http\Controllers\Api\Rbac\PermissionController as RbacPermissionController;
+use App\Http\Controllers\Api\Rbac\RoleController as RbacRoleController;
 use App\Http\Controllers\Api\Tenant\TenantController;
 use App\Http\Controllers\Api\Tenant\TenantDomainController;
 use App\Http\Controllers\Api\VisitorFollowupController;
@@ -141,6 +143,11 @@ Route::prefix('v1')->group(function (): void {
         Route::apiResource('notifications', NotificationController::class);
         Route::apiResource('notification-rules', NotificationRuleController::class);
         Route::post('notification-rules/{notification_rule}/run', [NotificationRuleController::class, 'run']);
+
+        Route::prefix('rbac')->middleware('can:rbac.view')->group(function (): void {
+            Route::get('roles', [RbacRoleController::class, 'index'])->name('rbac.roles.index');
+            Route::get('permissions', [RbacPermissionController::class, 'index'])->name('rbac.permissions.index');
+        });
 
         Route::apiResource('volunteer-roles', VolunteerRoleController::class);
         Route::apiResource('volunteer-teams', VolunteerTeamController::class);
