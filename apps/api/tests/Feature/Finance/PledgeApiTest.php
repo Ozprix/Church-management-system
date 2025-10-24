@@ -8,6 +8,7 @@ use App\Models\Fund;
 use App\Models\Member;
 use App\Models\Pledge;
 use App\Models\Tenant;
+use App\Support\PledgeReminderCadence;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -125,5 +126,88 @@ class PledgeApiTest extends TestCase
         $response->assertOk();
         $this->assertCount(1, $response->json('data'));
         $this->assertSame('fulfilled', $response->json('data.0.status'));
+    }
+
+    public function test_it_enables_pledge_reminders(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2024-02-01 09:00:00', 'UTC'));
+
+        try {
+            $tenant = Tenant::factory()->create();
+            $member = Member::factory()->create(['tenant_id' => $tenant->id]);
+            $fund = Fund::factory()->create(['tenant_id' => $tenant->id]);
+
+            $this->actingAsTenantAdmin($tenant);
+
+            $pledge = Pledge::factory()->create([
+                'tenant_id' => $tenant->id,
+                'member_id' => $member->id,
+                'fund_id' => $fund->id,
+                'start_date' => Carbon::parse('2024-01-01'),
+                'status' => 'active',
+                'reminder_enabled' => false,
+            ]);
+
+            $payload = [
+                'start_date' => Carbon::parse('2024-02-01')->toDateString(),
+                'reminder_enabled' => true,
+                'reminder_cadence' => PledgeReminderCadence::WEEKLY,
+            ];
+
+            $response = $this
+                ->withHeader('X-Tenant-ID', $tenant->uuid)
+                ->putJson("/api/v1/pledges/{$pledge->id}", $payload);
+
+            $response->assertOk()
+                ->assertJsonPath('data.reminder_enabled', true)
+                ->assertJsonPath('data.reminder_cadence', PledgeReminderCadence::WEEKLY);
+
+            $this->assertNotNull($response->json('data.next_reminder_at'));
+
+            $pledge->refresh();
+
+            $this->assertTrue($pledge->reminder_enabled);
+            $this->assertSame(PledgeReminderCadence::WEEKLY, $pledge->reminder_cadence);
+            $this->assertNotNull($pledge->next_reminder_at);
+            $this->assertTrue($pledge->next_reminder_at->equalTo(Carbon::parse('2024-02-08 00:00:00', 'UTC')));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_disabling_reminders_clears_schedule(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $member = Member::factory()->create(['tenant_id' => $tenant->id]);
+        $fund = Fund::factory()->create(['tenant_id' => $tenant->id]);
+
+        $this->actingAsTenantAdmin($tenant);
+
+        $pledge = Pledge::factory()->create([
+            'tenant_id' => $tenant->id,
+            'member_id' => $member->id,
+            'fund_id' => $fund->id,
+            'status' => 'active',
+            'reminder_enabled' => true,
+            'reminder_cadence' => PledgeReminderCadence::MONTHLY,
+            'next_reminder_at' => Carbon::now()->subDay(),
+        ]);
+
+        $response = $this
+            ->withHeader('X-Tenant-ID', $tenant->uuid)
+            ->putJson("/api/v1/pledges/{$pledge->id}", [
+                'reminder_enabled' => false,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.reminder_enabled', false)
+            ->assertJsonPath('data.reminder_cadence', null)
+            ->assertJsonPath('data.next_reminder_at', null);
+
+        $pledge->refresh();
+
+        $this->assertFalse($pledge->reminder_enabled);
+        $this->assertNull($pledge->reminder_cadence);
+        $this->assertNull($pledge->next_reminder_at);
     }
 }

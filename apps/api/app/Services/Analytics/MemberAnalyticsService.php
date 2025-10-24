@@ -161,6 +161,29 @@ class MemberAnalyticsService
                 ];
             });
 
+        $availableStatuses = Member::query()
+            ->select('membership_status')
+            ->distinct()
+            ->pluck('membership_status')
+            ->filter(fn ($value) => is_string($value) && $value !== '')
+            ->values();
+
+        $availableStages = Member::query()
+            ->select('membership_stage')
+            ->whereNotNull('membership_stage')
+            ->distinct()
+            ->pluck('membership_stage')
+            ->filter(fn ($value) => is_string($value) && $value !== '')
+            ->values();
+
+        $earliestJoined = Member::query()->min('created_at');
+        $latestJoined = Member::query()->max('created_at');
+
+        $joinedRange = [
+            'earliest' => $earliestJoined ? Carbon::parse($earliestJoined)->toDateString() : null,
+            'latest' => $latestJoined ? Carbon::parse($latestJoined)->toDateString() : null,
+        ];
+
         return [
             'totals' => [
                 'members' => $totalMembers,
@@ -171,6 +194,11 @@ class MemberAnalyticsService
             'by_stage' => $byStage,
             'new_members_trend' => array_values($trendBuckets),
             'recent_members' => $recentMembers,
+            'filters' => [
+                'statuses' => $availableStatuses->all(),
+                'stages' => $availableStages->all(),
+                'joined_range' => $joinedRange,
+            ],
         ];
     }
 }

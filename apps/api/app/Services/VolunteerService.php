@@ -9,6 +9,7 @@ use App\Models\VolunteerAvailability;
 use App\Models\VolunteerRole;
 use App\Models\VolunteerTeam;
 use App\Models\VolunteerSignup;
+use App\Support\VolunteerSignupStage;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -211,13 +212,33 @@ class VolunteerService
             return;
         }
 
+        $signupQuery = VolunteerSignup::query()
+            ->where('tenant_id', $role->tenant_id)
+            ->where('volunteer_role_id', $role->id);
+
+        $stageCounts = (clone $signupQuery)
+            ->select('stage')
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy('stage')
+            ->pluck('aggregate', 'stage')
+            ->map(fn ($count) => (int) $count)
+            ->toArray();
+
+        $activeAssignmentCount = (int) $role->assignments()->whereNotIn('status', ['canceled', 'completed'])->count();
+
+        $pendingStageValues = array_diff(
+            VolunteerSignupStage::values(),
+            [VolunteerSignupStage::READY, VolunteerSignupStage::INACTIVE]
+        );
+
+        $pendingSignupCount = (int) (clone $signupQuery)
+            ->whereIn('stage', $pendingStageValues)
+            ->count();
+
         $role->forceFill([
-            'active_assignment_count' => (int) $role->assignments()->whereNotIn('status', ['canceled', 'completed'])->count(),
-            'pending_signup_count' => (int) VolunteerSignup::query()
-                ->where('tenant_id', $role->tenant_id)
-                ->where('volunteer_role_id', $role->id)
-                ->where('status', 'pending')
-                ->count(),
+            'active_assignment_count' => $activeAssignmentCount,
+            'pending_signup_count' => $pendingSignupCount,
+            'pipeline_stage_counts' => $stageCounts ?: null,
         ])->save();
     }
 

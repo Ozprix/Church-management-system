@@ -32,6 +32,56 @@ export interface VisitorFollowup {
   last_step_run_at?: string | null;
   workflow?: VisitorWorkflow;
   current_step?: VisitorWorkflowStep;
+  logs_count?: number;
+}
+
+export interface VisitorFollowupLog {
+  id: number;
+  status: string;
+  channel?: string | null;
+  notes?: string | null;
+  run_at?: string | null;
+  step?: {
+    id: number;
+    name?: string | null;
+    channel?: string | null;
+    step_number: number;
+  } | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface VisitorAnalytics {
+  stats: {
+    total_visitors: number;
+    converted_visitors: number;
+    active_followups: number;
+    completed_last_30_days: number;
+    conversion_rate: number;
+  };
+  breakdown: {
+    followup_statuses: Array<{ status: string; total: number }>;
+    workflows: Array<{
+      workflow_id: number;
+      workflow_name: string;
+      pending: number;
+      in_progress: number;
+      completed: number;
+      halted: number;
+    }>;
+  };
+  recent_activity: Array<{
+    id: number;
+    status: string;
+    channel?: string | null;
+    notes?: string | null;
+    run_at?: string | null;
+    step?: string | null;
+    member?: {
+      id: number;
+      first_name: string;
+      last_name: string;
+    } | null;
+  }>;
 }
 
 interface PaginatedResponse<T> {
@@ -129,6 +179,21 @@ export async function deleteVisitorWorkflowStep(tenantId: string, stepId: number
 
 export async function fetchVisitorFollowups(tenantId: string): Promise<VisitorFollowup[]> {
   const response = await apiFetch<PaginatedResponse<VisitorFollowup>>('/v1/visitor-followups', {}, tenantId);
+  return response.data;
+}
+
+interface LogPaginatedResponse {
+  data: VisitorFollowupLog[];
+  meta?: unknown;
+}
+
+export async function fetchVisitorFollowupLogs(tenantId: string, followupId: number): Promise<VisitorFollowupLog[]> {
+  const response = await apiFetch<LogPaginatedResponse>(`/v1/visitor-followups/${followupId}/logs`, {}, tenantId);
+  return response.data;
+}
+
+export async function fetchVisitorAnalytics(tenantId: string): Promise<VisitorAnalytics> {
+  const response = await apiFetch<{ data: VisitorAnalytics }>('/v1/visitors/analytics', {}, tenantId);
   return response.data;
 }
 

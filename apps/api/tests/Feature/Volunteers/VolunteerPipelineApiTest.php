@@ -8,6 +8,7 @@ use App\Models\Member;
 use App\Models\Tenant;
 use App\Models\VolunteerAssignment;
 use App\Models\VolunteerRole;
+use App\Support\VolunteerSignupStage;
 use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -35,7 +36,9 @@ class VolunteerPipelineApiTest extends TestCase
             ->withHeader('X-Tenant-ID', $tenant->uuid)
             ->postJson('/api/v1/volunteer-signups', $payload);
 
-        $response->assertCreated()->assertJsonPath('data.name', 'Jane Doe');
+        $response->assertCreated()
+            ->assertJsonPath('data.name', 'Jane Doe')
+            ->assertJsonPath('data.stage', VolunteerSignupStage::APPLIED);
 
         $signupId = $response->json('data.id');
 
@@ -44,6 +47,16 @@ class VolunteerPipelineApiTest extends TestCase
         $this
             ->withHeader('X-Tenant-ID', $tenant->uuid)
             ->patchJson("/api/v1/volunteer-signups/{$signupId}", [
+                'stage' => VolunteerSignupStage::REVIEW,
+                'stage_notes' => 'Reviewed during pipeline test.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.stage', VolunteerSignupStage::REVIEW);
+
+        $this
+            ->withHeader('X-Tenant-ID', $tenant->uuid)
+            ->patchJson("/api/v1/volunteer-signups/{$signupId}", [
+                'stage' => VolunteerSignupStage::READY,
                 'status' => 'confirmed',
                 'assignment' => [
                     'starts_at' => $assignmentStarts,
@@ -51,7 +64,9 @@ class VolunteerPipelineApiTest extends TestCase
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('data.status', 'assigned');
+            ->assertJsonPath('data.status', 'assigned')
+            ->assertJsonPath('data.stage', VolunteerSignupStage::READY)
+            ->assertJsonCount(3, 'data.stage_history');
 
         $this->assertDatabaseHas('volunteer_assignments', [
             'tenant_id' => $tenant->id,
@@ -63,6 +78,7 @@ class VolunteerPipelineApiTest extends TestCase
         $role->refresh();
         $this->assertGreaterThanOrEqual(1, $role->active_assignment_count);
         $this->assertSame(0, $role->pending_signup_count);
+        $this->assertSame(1, (int) ($role->pipeline_stage_counts['ready'] ?? 0));
     }
 
     public function test_it_records_volunteer_hours(): void

@@ -5,9 +5,12 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\FamilyDashboardController;
 use App\Http\Controllers\Api\FamilyExportController;
+use App\Http\Controllers\Api\FamilyCommunicationController;
 use App\Http\Controllers\Api\Finance\DashboardController;
 use App\Http\Controllers\Api\Finance\DonationController;
+use App\Http\Controllers\Api\Finance\ExpenseController;
 use App\Http\Controllers\Api\Finance\FinanceExportController;
+use App\Http\Controllers\Api\Finance\FinanceReportController;
 use App\Http\Controllers\Api\Finance\FundController;
 use App\Http\Controllers\Api\Finance\PaymentMethodController;
 use App\Http\Controllers\Api\Finance\PledgeController;
@@ -34,14 +37,17 @@ use App\Http\Controllers\Api\NotificationRuleController;
 use App\Http\Controllers\Api\NotificationTemplateController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\FinanceAnalyticsController;
+use App\Http\Controllers\Api\FinanceTrialBalanceController;
 use App\Http\Controllers\Api\FinanceAnalyticsExportController;
 use App\Http\Controllers\Api\Rbac\PermissionController as RbacPermissionController;
 use App\Http\Controllers\Api\Rbac\RoleController as RbacRoleController;
 use App\Http\Controllers\Api\Tenant\TenantController;
 use App\Http\Controllers\Api\Tenant\TenantDomainController;
 use App\Http\Controllers\Api\VisitorFollowupController;
+use App\Http\Controllers\Api\VisitorFollowupLogController;
 use App\Http\Controllers\Api\VisitorWorkflowController;
 use App\Http\Controllers\Api\VisitorWorkflowStepController;
+use App\Http\Controllers\Api\VisitorAnalyticsController;
 use App\Http\Controllers\Api\UserTwoFactorAdminController;
 use App\Http\Controllers\Api\Volunteer\VolunteerAnalyticsController;
 use App\Http\Controllers\Api\Volunteer\VolunteerAssignmentController;
@@ -96,21 +102,30 @@ Route::prefix('v1')->group(function (): void {
             ->name('members.bulk-delete');
         Route::post('members/{member}/restore', [MemberController::class, 'restore'])->name('members.restore');
         Route::get('members/{member}/audits', [MemberAuditController::class, 'index'])->name('members.audits.index');
+        Route::get('members/analytics', MemberAnalyticsController::class)->name('members.analytics');
+        Route::get('members/analytics/export', MemberAnalyticsExportController::class)->name('members.analytics.export');
+        Route::get('members/export', MemberExportController::class);
         Route::apiResource('members', MemberController::class);
-        Route::get('members/analytics', MemberAnalyticsController::class);
-        Route::get('members/analytics/export', MemberAnalyticsExportController::class);
         Route::get('families/analytics', FamilyAnalyticsController::class);
         Route::get('families/analytics/export', FamilyAnalyticsExportController::class);
         Route::apiResource('member-analytics-reports', MemberAnalyticsReportController::class);
         Route::post('member-analytics-reports/{memberAnalyticsReport}/run', [MemberAnalyticsReportController::class, 'run']);
         Route::get('member-analytics-reports/{memberAnalyticsReport}/export', [MemberAnalyticsReportController::class, 'export']);
-        Route::get('members/export', MemberExportController::class);
         Route::apiResource('families', FamilyController::class);
+        Route::post('families/{family}/communications', [FamilyCommunicationController::class, 'store'])
+            ->name('families.communications.store');
         Route::get('families/export', FamilyExportController::class);
         Route::get('families/dashboard', FamilyDashboardController::class);
         Route::post('tenants/{tenant}/plans', [TenantController::class, 'assignPlan']);
         Route::get('finance/analytics', FinanceAnalyticsController::class);
         Route::get('finance/analytics/export', FinanceAnalyticsExportController::class);
+        Route::get('finance/ledger/trial-balance', FinanceTrialBalanceController::class);
+        Route::apiResource('finance/reports', FinanceReportController::class)->only(['index', 'store', 'show']);
+        Route::get('finance/reports/{financeReport}/download', [FinanceReportController::class, 'download'])
+            ->name('finance.reports.download');
+        Route::post('expenses/{expense}/submit', [ExpenseController::class, 'submit']);
+        Route::post('expenses/{expense}/approve', [ExpenseController::class, 'approve']);
+        Route::post('expenses/{expense}/reimburse', [ExpenseController::class, 'reimburse']);
 
         Route::get('tenant/profile', [TenantController::class, 'profile']);
         Route::get('tenant/domains', [TenantDomainController::class, 'index']);
@@ -135,6 +150,10 @@ Route::prefix('v1')->group(function (): void {
             ->shallow()
             ->only(['store', 'update', 'destroy']);
         Route::apiResource('visitor-followups', VisitorFollowupController::class)->only(['index', 'store', 'update']);
+        Route::get('visitor-followups/{visitorFollowup}/logs', [VisitorFollowupLogController::class, 'index'])
+            ->name('visitor-followups.logs.index');
+        Route::get('visitors/analytics', VisitorAnalyticsController::class)
+            ->name('visitors.analytics');
 
         Route::apiResource('services', ServiceController::class);
         Route::apiResource('gatherings', GatheringController::class);
@@ -161,6 +180,7 @@ Route::prefix('v1')->group(function (): void {
         Route::apiResource('funds', FundController::class);
         Route::apiResource('pledges', PledgeController::class);
         Route::apiResource('donations', DonationController::class);
+        Route::apiResource('expenses', ExpenseController::class);
         Route::apiResource('payment-methods', PaymentMethodController::class);
         Route::apiResource('recurring-donations', RecurringDonationScheduleController::class);
         Route::get('recurring-donations/{recurring_donation}/attempts', [RecurringDonationAttemptController::class, 'index']);

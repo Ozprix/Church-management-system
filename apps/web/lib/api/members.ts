@@ -111,6 +111,14 @@ export interface MemberAnalyticsResponse {
     stage?: string | null;
     joined_at: string | null;
   }>;
+  filters?: {
+    statuses: string[];
+    stages: string[];
+    joined_range?: {
+      earliest?: string | null;
+      latest?: string | null;
+    };
+  };
 }
 
 export interface MemberAnalyticsFilters {

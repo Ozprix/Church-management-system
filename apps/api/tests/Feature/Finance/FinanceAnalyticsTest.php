@@ -60,6 +60,11 @@ class FinanceAnalyticsTest extends TestCase
             'donations_trend',
             'top_donors',
             'recent_donations',
+            'filters' => [
+                'statuses',
+                'funds',
+                'date_range' => ['earliest', 'latest'],
+            ],
         ]);
     }
 

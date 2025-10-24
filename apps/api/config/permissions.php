@@ -238,6 +238,10 @@ return [
                     'name' => 'Manage pledges',
                     'description' => 'Create and manage pledge commitments.',
                 ],
+                'finance.manage_expenses' => [
+                    'name' => 'Manage expenses',
+                    'description' => 'Submit, approve, and reimburse ministry expenses.',
+                ],
                 'finance.manage_recurring' => [
                     'name' => 'Manage recurring donations',
                     'description' => 'Create and update recurring donation schedules.',
@@ -340,6 +344,7 @@ return [
                 'finance.manage_donations',
                 'finance.manage_payment_methods',
                 'finance.manage_pledges',
+                'finance.manage_expenses',
                 'finance.manage_recurring',
                 'finance.export',
                 'reports.finance_generate',

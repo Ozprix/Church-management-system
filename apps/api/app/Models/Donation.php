@@ -26,6 +26,10 @@ class Donation extends Model
         'provider',
         'provider_reference',
         'receipt_number',
+        'receipt_disk',
+        'receipt_path',
+        'receipt_generated_at',
+        'receipt_sent_at',
         'notes',
         'metadata',
     ];
@@ -33,6 +37,8 @@ class Donation extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'received_at' => 'datetime',
+        'receipt_generated_at' => 'datetime',
+        'receipt_sent_at' => 'datetime',
         'metadata' => 'array',
     ];
 

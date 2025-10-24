@@ -14,6 +14,8 @@ import {
 } from '@/lib/api/visitors';
 import { useVisitorWorkflows } from '@/hooks/use-visitor-workflows';
 import { useVisitorFollowups } from '@/hooks/use-visitor-followups';
+import { useVisitorAnalytics } from '@/hooks/use-visitor-analytics';
+import { useVisitorFollowupLogs } from '@/hooks/use-visitor-followup-logs';
 import { useNotificationTemplates } from '@/hooks/use-notifications';
 import { useTenantId } from '@/lib/tenant';
 import {
@@ -31,6 +33,7 @@ import {
   TableHeaderCell,
   TableRow,
   useToast,
+  StatCard,
 } from '@church/ui';
 import { ApiError } from '@/lib/api/http';
 
@@ -59,14 +62,23 @@ export default function VisitorsPage() {
 
   const { data: workflows = [], isLoading: workflowsLoading } = useVisitorWorkflows();
   const { data: followups = [], isLoading: followupsLoading } = useVisitorFollowups();
+  const { data: analytics } = useVisitorAnalytics();
   const { data: templatesResponse } = useNotificationTemplates();
   const templates = templatesResponse?.data ?? [];
+
+  const [activeFollowup, setActiveFollowup] = useState<VisitorFollowup | null>(null);
+  const { data: followupLogs = [], isLoading: logsLoading } = useVisitorFollowupLogs(activeFollowup?.id ?? null);
 
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
   const [memberIdInput, setMemberIdInput] = useState('');
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | ''>('');
   const [stepForms, setStepForms] = useState<Record<number, StepFormState>>({});
+
+  const stats = analytics?.stats;
+  const followupStatusBreakdown = analytics?.breakdown.followup_statuses ?? [];
+  const workflowPerformance = analytics?.breakdown.workflows ?? [];
+  const recentActivity = analytics?.recent_activity ?? [];
 
   const createWorkflowMutation = useMutation({
     mutationFn: async () => {
@@ -201,6 +213,84 @@ export default function VisitorsPage() {
 
   return (
     <div className="space-y-8">
+      {stats && (
+        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard title="Total visitors" value={stats.total_visitors} helperText="Members currently marked as visitors" />
+          <StatCard
+            title="Converted"
+            value={stats.converted_visitors}
+            helperText="Visitors moved into membership"
+            tone="success"
+          />
+          <StatCard
+            title="Active follow-ups"
+            value={stats.active_followups}
+            helperText="Follow-ups pending or in progress"
+            tone="warning"
+          />
+          <StatCard
+            title="Conversion rate"
+            value={`${stats.conversion_rate}%`}
+            helperText="Visitors converted overall"
+            tone="success"
+          />
+        </section>
+      )}
+
+      {analytics && (
+        <section className="grid gap-4 lg:grid-cols-3">
+          <Card className="space-y-3 lg:col-span-1">
+            <h3 className="text-sm font-semibold text-slate-700">Follow-up statuses</h3>
+            <ul className="space-y-2 text-sm text-slate-600">
+              {followupStatusBreakdown.length === 0 && <li>No follow-ups yet.</li>}
+              {followupStatusBreakdown.map((item) => (
+                <li key={item.status} className="flex items-center justify-between">
+                  <span className="capitalize">{item.status.replace('_', ' ')}</span>
+                  <span className="font-semibold text-slate-900">{item.total}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card className="space-y-3 lg:col-span-1">
+            <h3 className="text-sm font-semibold text-slate-700">Workflow performance</h3>
+            <ul className="space-y-3 text-sm text-slate-600">
+              {workflowPerformance.length === 0 && <li>No workflow data yet.</li>}
+              {workflowPerformance.map((item) => (
+                <li key={item.workflow_id} className="space-y-1">
+                  <p className="font-semibold text-slate-900">{item.workflow_name}</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                    <Badge variant="info">Pending {item.pending}</Badge>
+                    <Badge variant="info">In progress {item.in_progress}</Badge>
+                    <Badge variant="success">Completed {item.completed}</Badge>
+                    <Badge variant="warning">Halted {item.halted}</Badge>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card className="space-y-3 lg:col-span-1">
+            <h3 className="text-sm font-semibold text-slate-700">Recent activity</h3>
+            <ul className="space-y-2 text-sm text-slate-600">
+              {recentActivity.length === 0 && <li>No recent activity.</li>}
+              {recentActivity.map((entry) => (
+                <li key={entry.id} className="rounded border border-slate-200 p-2">
+                  <p className="font-semibold text-slate-900">{entry.step ?? 'Workflow step'}</p>
+                  <p className="text-xs text-slate-500">
+                    {entry.run_at ? new Date(entry.run_at).toLocaleString() : '—'} • {entry.status}
+                  </p>
+                  {entry.member && (
+                    <p className="text-xs text-slate-500">
+                      {entry.member.first_name} {entry.member.last_name}
+                    </p>
+                  )}
+                  {entry.notes && <p className="text-xs text-slate-600">{entry.notes}</p>}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
+      )}
+
       <section>
         <Card className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">Visitor Workflows</h2>
@@ -487,8 +577,10 @@ export default function VisitorsPage() {
                   <TableHeaderCell>ID</TableHeaderCell>
                   <TableHeaderCell>Member</TableHeaderCell>
                   <TableHeaderCell>Workflow</TableHeaderCell>
+                  <TableHeaderCell>Current step</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell>Next run</TableHeaderCell>
+                  <TableHeaderCell>Logs</TableHeaderCell>
                   <TableHeaderCell className="text-right">Actions</TableHeaderCell>
                 </TableRow>
               </TableHead>
@@ -507,47 +599,121 @@ export default function VisitorsPage() {
                     </TableCell>
                   </TableRow>
                 ) : null}
-                {followups.map((followup: VisitorFollowup) => (
-                  <TableRow key={followup.id}>
-                    <TableCell>{followup.id}</TableCell>
-                    <TableCell>{followup.member_id}</TableCell>
-                    <TableCell>{followup.workflow?.name ?? followup.workflow_id}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          followup.status === 'completed'
-                            ? 'success'
-                            : followup.status === 'halted'
-                            ? 'warning'
-                            : 'info'
-                        }
-                      >
-                        {followup.status.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {followup.next_run_at ? new Date(followup.next_run_at).toLocaleString() : '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {followup.status !== 'halted' && followup.status !== 'completed' ? (
+                {followups.map((followup: VisitorFollowup) => {
+                  const isActive = followup.status === 'pending' || followup.status === 'in_progress';
+
+                  return (
+                    <TableRow key={followup.id}>
+                      <TableCell>{followup.id}</TableCell>
+                      <TableCell>{followup.member_id}</TableCell>
+                      <TableCell>{followup.workflow?.name ?? followup.workflow_id}</TableCell>
+                      <TableCell>{followup.current_step?.name ?? '—'}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            followup.status === 'completed'
+                              ? 'success'
+                              : followup.status === 'halted'
+                              ? 'warning'
+                              : 'info'
+                          }
+                        >
+                          {followup.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {followup.next_run_at ? new Date(followup.next_run_at).toLocaleString() : '—'}
+                      </TableCell>
+                      <TableCell>
                         <Button
                           type="button"
                           variant="ghost"
-                          onClick={() => haltFollowupMutation.mutate(followup.id)}
+                          onClick={() =>
+                            setActiveFollowup((current) =>
+                              current?.id === followup.id ? null : followup
+                            )
+                          }
                         >
-                          Halt
+                          View logs {followup.logs_count ? `(${followup.logs_count})` : ''}
                         </Button>
-                      ) : (
-                        <span className="text-sm text-slate-500">No actions</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isActive ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => haltFollowupMutation.mutate(followup.id)}
+                          >
+                            Halt
+                          </Button>
+                        ) : (
+                          <span className="text-sm text-slate-500">No actions</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
         </Card>
       </section>
+
+      {activeFollowup && (
+        <section>
+          <Card className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Follow-up logs</h3>
+                <p className="text-sm text-slate-500">
+                  Workflow: {activeFollowup.workflow?.name ?? activeFollowup.workflow_id} • Member ID {activeFollowup.member_id}
+                </p>
+              </div>
+              <Button type="button" variant="ghost" onClick={() => setActiveFollowup(null)}>
+                Close
+              </Button>
+            </div>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell>Step</TableHeaderCell>
+                    <TableHeaderCell>Status</TableHeaderCell>
+                    <TableHeaderCell>Channel</TableHeaderCell>
+                    <TableHeaderCell>Run at</TableHeaderCell>
+                    <TableHeaderCell>Notes</TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {logsLoading && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-4 text-center text-sm text-slate-500">
+                        Loading logs…
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!logsLoading && followupLogs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-4 text-center text-sm text-slate-500">
+                        No logs recorded yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {followupLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell>{log.step?.name ?? '—'}</TableCell>
+                      <TableCell>{log.status}</TableCell>
+                      <TableCell>{log.channel ?? '—'}</TableCell>
+                      <TableCell>{log.run_at ? new Date(log.run_at).toLocaleString() : '—'}</TableCell>
+                      <TableCell>{log.notes ?? '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }

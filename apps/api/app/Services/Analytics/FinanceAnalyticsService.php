@@ -4,6 +4,7 @@ namespace App\Services\Analytics;
 
 use App\Models\Donation;
 use App\Models\DonationItem;
+use App\Models\Fund;
 use App\Models\Member;
 use App\Models\Pledge;
 use Carbon\Carbon;
@@ -85,6 +86,26 @@ class FinanceAnalyticsService
         $topDonors = $this->topDonors($filters);
         $recentDonations = $this->recentDonations($filters);
 
+        $availableStatuses = Donation::query()
+            ->select('status')
+            ->distinct()
+            ->pluck('status')
+            ->filter(fn ($status) => is_string($status) && $status !== '')
+            ->values();
+
+        $availableFunds = Fund::query()
+            ->select(['id', 'name'])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Fund $fund) => [
+                'id' => $fund->id,
+                'name' => $fund->name,
+            ])
+            ->values();
+
+        $earliestDonation = Donation::query()->min('received_at');
+        $latestDonation = Donation::query()->max('received_at');
+
         return [
             'totals' => [
                 'donations_amount' => (float) $totalDonationsAmount,
@@ -97,6 +118,14 @@ class FinanceAnalyticsService
             'donations_trend' => $monthlyTrend,
             'top_donors' => $topDonors,
             'recent_donations' => $recentDonations,
+            'filters' => [
+                'statuses' => $availableStatuses->all(),
+                'funds' => $availableFunds->all(),
+                'date_range' => [
+                    'earliest' => $earliestDonation ? Carbon::parse($earliestDonation)->toDateString() : null,
+                    'latest' => $latestDonation ? Carbon::parse($latestDonation)->toDateString() : null,
+                ],
+            ],
         ];
     }
 

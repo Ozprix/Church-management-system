@@ -18,20 +18,20 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 | --- | --- | --- |
 | Member CRUD + validation | 🔄 | Controllers, resources, service layer, and feature coverage now include happy-path, validation failure, auditing assertions, filter/search + pagination scenarios, restore support, throttled bulk import/delete, async CSV import queue with monitoring, member audit timeline endpoints, and initial web dashboards (members list, analytics view); remaining UI polish includes richer charting and advanced filters. |
 | Custom fields & documents | 🔄 | API endpoints are scaffolded; file storage configuration, validation, and UI wiring pending. |
-| Family grouping & household comms | ⏳ | Controllers seeded; household analytics (`/families/analytics`) now surface size/relationship KPIs, with orchestration logic, notifications, and UI polish still pending. |
-| Attendance tracking & kiosk mode | ⏳ | Attendance controllers exist; kiosk PWA mode and offline sync still to build. |
-| Visitor intake & lifecycle | ⏳ | Workflow scaffolding created; needs automation rules, notifications, and reporting. |
+| Family grouping & household comms | 🔄 | Controllers seeded; orchestration now enforces primary/emergency contacts, triggers role notifications, and exposes `/families/{id}/communications` for broadcast messaging. Remaining work: UI polish and advanced automation rules. |
+| Attendance tracking & kiosk mode | 🔄 | API supports check-in workflows and the new `/attendance/kiosk` PWA provides offline check-in with sync queues; remaining work: hardware QR integration and rich analytics. |
+| Visitor intake & lifecycle | 🔄 | Automations now queue follow-up steps, expose logs, and surface `/visitors/analytics` dashboards; remaining work: rule builder UI polish and deeper conversion funnels. |
 | Reporting (directory, attendance dashboard) | ⏳ | Analytics controllers started, dashboards and exports need polishing and UI integration. |
 
 ## Phase 2 – Financial Suite
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Donation intake & Stripe webhooks | 🔄 | Donation service and webhook controller exist; need live gateway integration tests and receipt templates. |
+| Donation intake & Stripe webhooks | 🔄 | Donation service and webhook controller exist; receipt PDFs now generate/email on success. Pending: live gateway integration tests. |
 | Pledge management & reminders | ⏳ | Models and services scaffolded, reminder scheduling logic outstanding. |
 | Ledger & journal subsystem | ⏳ | Ledger model exists; double-entry enforcement and reconciliation tooling still required. |
-| Expense workflow UI | ⏳ | No implementation yet; requires endpoints, approval logic, and PWA screens. |
-| Financial reports & statements | 🔄 | Export endpoints added along with finance analytics dashboard (`/finance/analytics`); formatting, PDF generation, and tenant branding pending. |
+| Expense workflow UI | ✅ | Expenses API with submission/approval/reimbursement states plus new finance/expenses PWA section. |
+| Financial reports & statements | ✅ | Tenant-branded PDF exports (statements, balance sheet, donor letters) available under Finance &gt; Branded PDFs. |
 
 ## Phase 3 – Events & Communications
 

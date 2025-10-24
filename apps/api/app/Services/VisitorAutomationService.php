@@ -223,6 +223,14 @@ class VisitorAutomationService
             return;
         }
 
+        if ($step->channel === 'task') {
+            $log->status = 'pending';
+            $log->notes = $log->notes ?: 'Manual follow-up required.';
+            $log->save();
+
+            return;
+        }
+
         $log->status = 'skipped';
         $log->notes = 'No delivery action required for this step.';
         $log->save();

@@ -23,6 +23,7 @@ class FinanceReportController extends Controller
     {
         $tenant = $request->attributes->get('tenant');
         $reports = FinanceReport::query()
+            ->with('requester')
             ->when($tenant, fn ($query) => $query->where('tenant_id', $tenant->id))
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 20))
@@ -47,10 +48,15 @@ class FinanceReportController extends Controller
     {
         abort_unless($financeReport->status === 'completed' && $financeReport->file_path, 404);
 
-        $url = Storage::disk($financeReport->disk ?? 'reports')->temporaryUrl(
-            $financeReport->file_path,
-            now()->addMinutes(config('reports.download_ttl', 5))
-        );
+        $disk = Storage::disk($financeReport->disk ?? 'reports');
+
+        $ttl = now()->addMinutes(config('reports.download_ttl', 5));
+
+        if (method_exists($disk, 'temporaryUrl')) {
+            $url = $disk->temporaryUrl($financeReport->file_path, $ttl);
+        } else {
+            $url = $disk->url($financeReport->file_path);
+        }
 
         return response()->json([
             'url' => $url,

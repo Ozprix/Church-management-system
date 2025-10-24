@@ -151,6 +151,30 @@ class FamilyAnalyticsService
                 ];
             });
 
+        $addresses = Family::query()
+            ->select('address')
+            ->get()
+            ->pluck('address');
+
+        $availableCities = $addresses
+            ->map(fn ($address) => is_array($address) ? ($address['city'] ?? null) : null)
+            ->filter(fn ($city) => is_string($city) && trim($city) !== '')
+            ->map(fn ($city) => trim($city))
+            ->unique()
+            ->sort()
+            ->values();
+
+        $availableStates = $addresses
+            ->map(fn ($address) => is_array($address) ? ($address['state'] ?? null) : null)
+            ->filter(fn ($state) => is_string($state) && trim($state) !== '')
+            ->map(fn ($state) => trim($state))
+            ->unique()
+            ->sort()
+            ->values();
+
+        $earliestCreated = Family::query()->min('created_at');
+        $latestCreated = Family::query()->max('created_at');
+
         return [
             'totals' => [
                 'families' => $totalFamilies,
@@ -162,6 +186,14 @@ class FamilyAnalyticsService
             'by_relationship' => $relationshipBreakdown,
             'recent_families' => $recentFamilies,
             'families_missing_primary' => $familiesMissingPrimary,
+            'filters' => [
+                'cities' => $availableCities->all(),
+                'states' => $availableStates->all(),
+                'created_range' => [
+                    'earliest' => $earliestCreated ? Carbon::parse($earliestCreated)->toDateString() : null,
+                    'latest' => $latestCreated ? Carbon::parse($latestCreated)->toDateString() : null,
+                ],
+            ],
         ];
     }
 

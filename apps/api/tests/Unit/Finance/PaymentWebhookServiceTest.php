@@ -94,4 +94,24 @@ class PaymentWebhookServiceTest extends TestCase
             'status' => 'processed',
         ]);
     }
+
+    public function test_signature_verification_blocks_invalid_payload(): void
+    {
+        $controller = new \App\Http\Controllers\Api\Webhooks\StripeWebhookController(app(\App\Services\PaymentWebhookService::class));
+
+        $reflection = new \ReflectionClass($controller);
+        $method = $reflection->getMethod('isValidSignature');
+        $method->setAccessible(true);
+
+        $payload = '{"id":"evt_test"}';
+        $secret = 'whsec_test_secret';
+        $timestamp = '123456789';
+        $signature = hash_hmac('sha256', $timestamp . '.' . $payload, $secret);
+
+        $validHeader = 't=' . $timestamp . ',v1=' . $signature;
+        $this->assertTrue($method->invoke($controller, $payload, $validHeader, $secret));
+
+        $invalidHeader = 't=' . $timestamp . ',v1=invalid';
+        $this->assertFalse($method->invoke($controller, $payload, $invalidHeader, $secret));
+    }
 }

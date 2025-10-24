@@ -9,12 +9,24 @@ use App\Models\Fund;
 use App\Models\Member;
 use App\Models\PaymentMethod;
 use App\Models\Pledge;
+use App\Services\Finance\ChartOfAccountsService;
+use App\Services\Finance\DonationReceiptService;
+use App\Support\PledgeReminderCadence;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class FinanceService
 {
+    public function __construct(
+        private readonly DonationReceiptService $donationReceiptService,
+        private readonly ChartOfAccountsService $chartOfAccountsService,
+    )
+    {
+    }
+
     public function createFund(array $attributes): Fund
     {
         return Fund::create(Arr::only($attributes, [
@@ -35,8 +47,8 @@ class FinanceService
         return $fund->fresh();
     }
 
-    private const DEFAULT_INCOME_ACCOUNT = 'Donations Income';
-    private const DEFAULT_ASSET_ACCOUNT = 'Cash - Undeposited Funds';
+    private const ACCOUNT_DONATIONS_INCOME = 'income.donations';
+    private const ACCOUNT_CASH_UNDEPOSITED = 'assets.cash.undeposited';
 
     public function recordDonation(array $attributes): Donation
     {
@@ -76,6 +88,8 @@ class FinanceService
 
             $this->syncDonationLedgerEntries($donation);
 
+            $this->handleReceipt($donation);
+
             return $donation->fresh(['items.fund', 'member']);
         });
     }
@@ -103,8 +117,47 @@ class FinanceService
         $donation->refresh();
 
         $this->syncDonationLedgerEntries($donation, $previousStatus);
+        $this->handleReceipt($donation, $previousStatus);
 
         return $donation->fresh(['items.fund', 'member']);
+    }
+
+    protected function handleReceipt(Donation $donation, ?string $previousStatus = null): void
+    {
+        if ($donation->status !== 'succeeded') {
+            return;
+        }
+
+        $this->ensureReceiptNumber($donation);
+
+        $receiptDisk = $donation->receipt_disk ?? config('reports.disk', 'reports');
+        $missingPath = empty($donation->receipt_path);
+        $missingFile = false;
+
+        if (! $missingPath) {
+            $missingFile = ! Storage::disk($receiptDisk)->exists($donation->receipt_path);
+        }
+
+        $shouldGenerate = $previousStatus !== 'succeeded' || $missingPath || $missingFile;
+
+        if ($shouldGenerate) {
+            $donation = $this->donationReceiptService->ensureReceipt($donation, true);
+        }
+
+        if (! $donation->receipt_sent_at) {
+            $this->donationReceiptService->sendReceipt($donation);
+        }
+    }
+
+    protected function ensureReceiptNumber(Donation $donation): void
+    {
+        if ($donation->receipt_number) {
+            return;
+        }
+
+        $donation->forceFill([
+            'receipt_number' => 'RCPT-' . Carbon::now()->format('Ymd-His') . '-' . Str::upper(Str::random(6)),
+        ])->save();
     }
 
     public function createPledge(array $attributes): Pledge
@@ -119,7 +172,7 @@ class FinanceService
             Fund::query()->where('tenant_id', $tenantId)->findOrFail($attributes['fund_id']);
         }
 
-        return Pledge::create(Arr::only($attributes, [
+        $payload = Arr::only($attributes, [
             'tenant_id',
             'member_id',
             'fund_id',
@@ -132,12 +185,16 @@ class FinanceService
             'status',
             'notes',
             'metadata',
-        ]));
+        ]);
+
+        $payload = array_merge($payload, $this->prepareReminderAttributesForCreate($attributes));
+
+        return Pledge::create($payload);
     }
 
     public function updatePledge(Pledge $pledge, array $attributes): Pledge
     {
-        $pledge->fill(Arr::only($attributes, [
+        $payload = Arr::only($attributes, [
             'fund_id',
             'amount',
             'fulfilled_amount',
@@ -148,7 +205,11 @@ class FinanceService
             'status',
             'notes',
             'metadata',
-        ]));
+        ]);
+
+        $payload = array_merge($payload, $this->prepareReminderAttributesForUpdate($pledge, $attributes));
+
+        $pledge->fill($payload);
 
         if ($pledge->isDirty('fund_id') && $pledge->fund_id) {
             Fund::query()->where('tenant_id', $pledge->tenant_id)->findOrFail($pledge->fund_id);
@@ -157,6 +218,95 @@ class FinanceService
         $pledge->save();
 
         return $pledge->fresh();
+    }
+
+    protected function prepareReminderAttributesForCreate(array $attributes): array
+    {
+        $enabled = (bool) ($attributes['reminder_enabled'] ?? false);
+        $cadence = $attributes['reminder_cadence'] ?? null;
+        $next = $attributes['next_reminder_at'] ?? null;
+
+        if ($enabled && ! $next && $cadence) {
+            $anchor = $attributes['start_date'] ?? null;
+            $next = $this->calculateNextReminderFromAnchor($anchor, $cadence);
+        }
+
+        return [
+            'reminder_enabled' => $enabled,
+            'reminder_cadence' => $enabled ? $cadence : null,
+            'next_reminder_at' => $enabled ? $next : null,
+            'last_reminder_sent_at' => $attributes['last_reminder_sent_at'] ?? null,
+        ];
+    }
+
+    protected function prepareReminderAttributesForUpdate(Pledge $pledge, array $attributes): array
+    {
+        $updates = [];
+
+        if (array_key_exists('reminder_enabled', $attributes)) {
+            $enabled = (bool) $attributes['reminder_enabled'];
+            $updates['reminder_enabled'] = $enabled;
+
+            if (! $enabled) {
+                $updates['reminder_cadence'] = null;
+                $updates['next_reminder_at'] = null;
+            }
+        }
+
+        if (array_key_exists('reminder_cadence', $attributes)) {
+            $updates['reminder_cadence'] = $attributes['reminder_cadence'];
+        }
+
+        if (array_key_exists('next_reminder_at', $attributes)) {
+            $updates['next_reminder_at'] = $attributes['next_reminder_at'];
+        }
+
+        if (array_key_exists('last_reminder_sent_at', $attributes)) {
+            $updates['last_reminder_sent_at'] = $attributes['last_reminder_sent_at'];
+        }
+
+        $enabled = array_key_exists('reminder_enabled', $updates)
+            ? $updates['reminder_enabled']
+            : $pledge->reminder_enabled;
+
+        if ($enabled) {
+            $cadence = $updates['reminder_cadence'] ?? $pledge->reminder_cadence;
+            $startAnchor = $attributes['start_date'] ?? $pledge->start_date?->toDateString();
+            $hasExplicitNext = array_key_exists('next_reminder_at', $updates);
+            $shouldRecalculate = ! $pledge->next_reminder_at
+                || array_key_exists('reminder_cadence', $updates)
+                || array_key_exists('start_date', $attributes);
+
+            if ($cadence && ! $hasExplicitNext && $shouldRecalculate) {
+                $updates['next_reminder_at'] = $this->calculateNextReminderFromAnchor($startAnchor, $cadence);
+            }
+        }
+
+        return $updates;
+    }
+
+    protected function calculateNextReminderFromAnchor(?string $anchor, string $cadence): Carbon
+    {
+        $timezone = config('app.timezone');
+        $anchorDate = $anchor ? Carbon::parse($anchor, $timezone)->startOfDay() : Carbon::now($timezone);
+        $now = Carbon::now($timezone);
+
+        $next = $anchorDate->copy();
+
+        if ($next->gt($now)) {
+            return $next;
+        }
+
+        do {
+            $next = match ($cadence) {
+                PledgeReminderCadence::DAILY => $next->addDay(),
+                PledgeReminderCadence::WEEKLY => $next->addWeek(),
+                PledgeReminderCadence::QUARTERLY => $next->addMonths(3),
+                default => $next->addMonth(),
+            };
+        } while ($next->lte($now));
+
+        return $next;
     }
 
     protected function syncDonationItems(Donation $donation, array $items): void
@@ -186,45 +336,125 @@ class FinanceService
         $donation->ledgerEntries()->delete();
 
         if ($donation->status === 'succeeded') {
-            $this->createDonationLedgerPair($donation, 'donation');
+            $this->storeLedgerEntries($donation, $this->donationLedgerEntries($donation, 'donation'));
 
             return;
         }
 
         if ($donation->status === 'refunded') {
             if ($previousStatus === 'succeeded' || $existingEntries) {
-                $this->createDonationLedgerPair($donation, 'donation');
+                $this->storeLedgerEntries($donation, $this->donationLedgerEntries($donation, 'donation'));
             }
 
-            $this->createRefundLedgerPair($donation);
+            $this->storeLedgerEntries($donation, $this->refundLedgerEntries($donation));
         }
     }
 
-    protected function createDonationLedgerPair(Donation $donation, string $kind): void
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function donationLedgerEntries(Donation $donation, string $kind): array
     {
-        $this->createLedgerEntry($donation, 'credit', self::DEFAULT_INCOME_ACCOUNT, $kind);
-        $this->createLedgerEntry($donation, 'debit', self::DEFAULT_ASSET_ACCOUNT, $kind);
+        return [
+            $this->buildLedgerEntryPayload($donation, 'credit', self::ACCOUNT_DONATIONS_INCOME, $kind),
+            $this->buildLedgerEntryPayload($donation, 'debit', self::ACCOUNT_CASH_UNDEPOSITED, $kind),
+        ];
     }
 
-    protected function createRefundLedgerPair(Donation $donation): void
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function refundLedgerEntries(Donation $donation): array
     {
-        $this->createLedgerEntry($donation, 'debit', self::DEFAULT_INCOME_ACCOUNT, 'refund');
-        $this->createLedgerEntry($donation, 'credit', self::DEFAULT_ASSET_ACCOUNT, 'refund');
+        return [
+            $this->buildLedgerEntryPayload($donation, 'debit', self::ACCOUNT_DONATIONS_INCOME, 'refund'),
+            $this->buildLedgerEntryPayload($donation, 'credit', self::ACCOUNT_CASH_UNDEPOSITED, 'refund'),
+        ];
     }
 
-    protected function createLedgerEntry(Donation $donation, string $entryType, string $account, string $kind): void
+    /**
+     * @param array<int, array<string, mixed>> $entries
+     */
+    protected function storeLedgerEntries(Donation $donation, array $entries): void
     {
-        FinancialLedgerEntry::create([
-            'tenant_id' => $donation->tenant_id,
-            'donation_id' => $donation->id,
+        if (empty($entries)) {
+            return;
+        }
+
+        $resolved = [];
+        $totalDebits = 0.0;
+        $totalCredits = 0.0;
+
+        foreach ($entries as $entry) {
+            $entryType = $entry['entry_type'] ?? null;
+            $amount = (float) ($entry['amount'] ?? 0);
+            $currency = $entry['currency'] ?? ($donation->currency ?? 'USD');
+            $accountCode = $entry['account_code'] ?? null;
+
+            if (! in_array($entryType, ['debit', 'credit'], true)) {
+                throw new \InvalidArgumentException('Ledger entry type must be debit or credit.');
+            }
+
+            if ($amount <= 0) {
+                throw new \InvalidArgumentException('Ledger entry amount must be greater than zero.');
+            }
+
+            if (! $accountCode) {
+                throw new \InvalidArgumentException('Ledger entry requires an account code.');
+            }
+
+            if ($entryType === 'debit') {
+                $totalDebits += $amount;
+            } else {
+                $totalCredits += $amount;
+            }
+
+            $account = $this->chartOfAccountsService->resolveAccount($donation->tenant_id, $accountCode);
+
+            $resolved[] = [
+                'tenant_id' => $donation->tenant_id,
+                'donation_id' => $donation->id,
+                'financial_account_id' => $account->id,
+                'entry_type' => $entryType,
+                'account' => $account->name,
+                'amount' => $amount,
+                'currency' => $currency,
+                'occurred_at' => $entry['occurred_at'] ?? ($donation->received_at ?? Carbon::now()),
+                'description' => $entry['description'] ?? $donation->notes,
+                'metadata' => $entry['metadata'] ?? ['kind' => $entry['kind'] ?? null],
+            ];
+        }
+
+        if (round($totalDebits - $totalCredits, 2) !== 0.0) {
+            throw new \RuntimeException('Ledger entries must balance before posting.');
+        }
+
+        foreach ($resolved as $payload) {
+            if (isset($payload['metadata']) && is_array($payload['metadata']) && empty($payload['metadata']['kind'])) {
+                unset($payload['metadata']['kind']);
+                if (empty($payload['metadata'])) {
+                    $payload['metadata'] = null;
+                }
+            }
+
+            FinancialLedgerEntry::create($payload);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildLedgerEntryPayload(Donation $donation, string $entryType, string $accountCode, string $kind): array
+    {
+        return [
             'entry_type' => $entryType,
-            'account' => $account,
-            'amount' => $donation->amount,
-            'currency' => $donation->currency,
+            'account_code' => $accountCode,
+            'amount' => (float) $donation->amount,
+            'currency' => $donation->currency ?? 'USD',
             'occurred_at' => $donation->received_at ?? Carbon::now(),
             'description' => $donation->notes,
             'metadata' => ['kind' => $kind],
-        ]);
+        ];
     }
 
     public function createPaymentMethod(array $attributes): PaymentMethod

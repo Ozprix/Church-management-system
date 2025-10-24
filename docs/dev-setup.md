@@ -93,6 +93,7 @@ If you need to pass additional Artisan flags, append them after the command (`te
 - Custom rate-limiters (`member-import-upload`, `member-bulk-operations`) emit structured logs and a `ThrottleLimitExceeded` event when caps are hit—wire those into your monitoring stack for alerting.
 - Audit timeline endpoint: `GET /api/v1/members/{uuid}/audits` returns paginated change history (actions, actor, payload), powering the member detail activity feed.
 - Family analytics: `GET /api/v1/families/analytics` + `/families/analytics/export` surfaces household metrics; finance analytics mirror this at `/api/v1/finance/analytics` + `/finance/analytics/export`.
+- The web app exposes dashboards at `/families/analytics`, `/finance/analytics`, and `/members/analytics` with export buttons and filter panels that map to those endpoints.
 - Front-end expectations: set `NEXT_PUBLIC_API_BASE_URL` (Laravel domain) and `NEXT_PUBLIC_TENANT_ID` (slug/UUID) so client fetches send Sanctum cookies with the correct `X-Tenant-ID` header. Dashboards live at `/members/analytics`, `/families/analytics`, and `/finance/analytics`.
 - For local auth, create `.env.local` inside `apps/web` with:
   ```env
@@ -107,6 +108,8 @@ If you need to pass additional Artisan flags, append them after the command (`te
 - Build locally via `docker build -f docker/Dockerfile -t church-api:local apps/api`.
 - GitHub Actions (`api-container.yml`) builds the image and performs a Trivy scan on every PR/push to `dev`.
 - See `docs/devops.md` for the full DevOps guide and `docs/secrets-management.md` for handling encrypted `.env` files with SOPS.
+
+- Attendance kiosk lives at `/attendance/kiosk` in the PWA. It caches data for offline use and stores check-ins locally until the device reconnects. Pending check-ins sync automatically once online.
 
 ## 10. Next Actions
 - Install dependencies (`pnpm install`) after corepack/pnpm is enabled and network access is available.

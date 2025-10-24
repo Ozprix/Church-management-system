@@ -95,6 +95,9 @@ export default function FamiliesPage() {
           <p className="text-sm text-slate-500">View household insights and manage family records.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <Link href="/families/analytics">
+            <Button variant="secondary">Analytics</Button>
+          </Link>
           <Button variant="secondary" onClick={handleExport}>
             Export CSV
           </Button>

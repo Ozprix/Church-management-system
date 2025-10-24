@@ -25,12 +25,14 @@ class VolunteerRole extends Model
         'skills_required',
         'active_assignment_count',
         'pending_signup_count',
+        'pipeline_stage_counts',
     ];
 
     protected $casts = [
         'skills_required' => 'array',
         'active_assignment_count' => 'integer',
         'pending_signup_count' => 'integer',
+        'pipeline_stage_counts' => 'array',
     ];
 
     protected static function boot(): void

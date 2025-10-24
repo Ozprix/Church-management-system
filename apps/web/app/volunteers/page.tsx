@@ -202,11 +202,17 @@ function VolunteersContent() {
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-slate-900">Volunteer Scheduling</h2>
-          <p className="text-sm text-slate-500">Coordinate teams, roles, and service assignments.</p>
+          <p className="text-sm text-slate-500">Coordinate teams, pipeline stages, and service assignments.</p>
         </div>
-        <Link href="/communication" className="text-sm text-emerald-600 hover:text-emerald-700">
-          Communication center
-        </Link>
+        <div className="flex items-center gap-3 text-sm">
+          <Link href="/volunteers/pipeline" className="hover:text-emerald-600">
+            Volunteer pipeline
+          </Link>
+          <span className="text-slate-300">|</span>
+          <Link href="/communication" className="hover:text-emerald-600">
+            Communication center
+          </Link>
+        </div>
       </header>
 
       <Card className="space-y-4">

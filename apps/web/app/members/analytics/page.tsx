@@ -63,6 +63,10 @@ export default function MemberAnalyticsPage() {
     return <p className="text-slate-500">Loading analytics…</p>;
   }
 
+  const statusOptions = data?.filters?.statuses ?? [];
+  const stageOptions = data?.filters?.stages ?? [];
+  const joinedRange = data?.filters?.joined_range ?? {};
+
   return (
     <section className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -75,22 +79,54 @@ export default function MemberAnalyticsPage() {
         </Link>
       </div>
 
-      <form className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5" onSubmit={handleSubmit}>
+      <form
+        key={JSON.stringify(filters)}
+        className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5"
+        onSubmit={handleSubmit}
+      >
         <div>
           <Label htmlFor="status">Status</Label>
-          <Input id="status" name="status" placeholder="e.g. active" defaultValue={filters.status ?? ''} />
+          <Select id="status" name="status" defaultValue={filters.status ?? ''}>
+            <option value="">All statuses</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </Select>
         </div>
         <div>
           <Label htmlFor="stage">Stage</Label>
-          <Input id="stage" name="stage" placeholder="e.g. newcomer" defaultValue={filters.stage ?? ''} />
+          <Select id="stage" name="stage" defaultValue={filters.stage ?? ''}>
+            <option value="">All stages</option>
+            {stageOptions.map((stage) => (
+              <option key={stage} value={stage}>
+                {stage}
+              </option>
+            ))}
+          </Select>
         </div>
         <div>
           <Label htmlFor="joined_from">Joined from</Label>
-          <Input id="joined_from" name="joined_from" type="date" defaultValue={filters.joined_from ?? ''} />
+          <Input
+            id="joined_from"
+            name="joined_from"
+            type="date"
+            defaultValue={filters.joined_from ?? ''}
+            min={joinedRange.earliest ?? undefined}
+            max={joinedRange.latest ?? undefined}
+          />
         </div>
         <div>
           <Label htmlFor="joined_to">Joined to</Label>
-          <Input id="joined_to" name="joined_to" type="date" defaultValue={filters.joined_to ?? ''} />
+          <Input
+            id="joined_to"
+            name="joined_to"
+            type="date"
+            defaultValue={filters.joined_to ?? ''}
+            min={joinedRange.earliest ?? undefined}
+            max={joinedRange.latest ?? undefined}
+          />
         </div>
         <div>
           <Label htmlFor="with_family">Family assignment</Label>

@@ -72,6 +72,11 @@ class FamilyAnalyticsTest extends TestCase
             'by_relationship',
             'recent_families',
             'families_missing_primary',
+            'filters' => [
+                'cities',
+                'states',
+                'created_range' => ['earliest', 'latest'],
+            ],
         ]);
 
         $response->assertJsonPath('families_missing_primary.0.family_name', $familyWithoutPrimary->family_name);

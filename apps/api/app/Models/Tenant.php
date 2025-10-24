@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Finance\ChartOfAccountsService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -38,6 +39,10 @@ class Tenant extends Model
             if (empty($tenant->slug)) {
                 $tenant->slug = Str::slug($tenant->name);
             }
+        });
+
+        static::created(function (self $tenant) {
+            app(ChartOfAccountsService::class)->ensureDefaultsForTenant($tenant);
         });
     }
 
@@ -89,6 +94,16 @@ class Tenant extends Model
     public function donations(): HasMany
     {
         return $this->hasMany(Donation::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    public function financialAccounts(): HasMany
+    {
+        return $this->hasMany(FinancialAccount::class);
     }
 
     public function pledges(): HasMany

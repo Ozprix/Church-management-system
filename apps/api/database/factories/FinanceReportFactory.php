@@ -21,7 +21,14 @@ class FinanceReportFactory extends Factory
         return [
             'tenant_id' => Tenant::factory(),
             'requested_by' => User::factory(),
-            'type' => $this->faker->randomElement(['donations', 'pledges', 'donor-statement']),
+            'type' => $this->faker->randomElement([
+                'donations',
+                'pledges',
+                'donor-statement',
+                'monthly-statement',
+                'balance-sheet',
+                'donor-letters',
+            ]),
             'status' => 'pending',
             'disk' => 'reports',
             'file_path' => null,

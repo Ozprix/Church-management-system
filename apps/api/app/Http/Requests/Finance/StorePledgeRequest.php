@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Finance;
 
+use App\Support\PledgeReminderCadence;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePledgeRequest extends FormRequest
 {
@@ -32,6 +34,15 @@ class StorePledgeRequest extends FormRequest
             'status' => ['nullable', 'in:active,paused,fulfilled,cancelled'],
             'notes' => ['nullable', 'string'],
             'metadata' => ['nullable', 'array'],
+            'reminder_enabled' => ['sometimes', 'boolean'],
+            'reminder_cadence' => [
+                'nullable',
+                'string',
+                Rule::in(PledgeReminderCadence::values()),
+                Rule::requiredIf(fn () => $this->boolean('reminder_enabled')),
+            ],
+            'next_reminder_at' => ['nullable', 'date'],
+            'last_reminder_sent_at' => ['nullable', 'date'],
         ];
     }
 }

@@ -72,6 +72,11 @@ Base path: `/api/v1/members` (protected by `tenant.resolve`, `auth:sanctum`, and
 - `GET /families/{id}` — detail with members + roles.
 - `PUT /families/{id}` — update household info, reassign roles.
 - `DELETE /families/{id}` — soft delete (if no active members or by force flag).
+- `POST /families/{id}/communications` — broadcast email/SMS to household primary/emergency contacts.
+
+Automations:
+- Household orchestration ensures exactly one primary contact (guardian/head preference) and auto-assigns an emergency fallback when missing.
+- Primary/emergency contact changes trigger email notifications so members know their role.
 
 ### Custom Fields
 - `GET /members/custom-fields`
@@ -87,6 +92,8 @@ Base path: `/api/v1/members` (protected by `tenant.resolve`, `auth:sanctum`, and
 - `POST /visitors` — create visitor record + potential auto-member conversion pathway.
 - `POST /members/{uuid}/convert-visitor` — convert visitor to active member (updates status + joined_at).
 - `POST /member-imports` — upload CSV to queue async import; `GET /member-imports` & `GET /member-imports/{id}` expose job status/metrics.
+- `GET /visitors/analytics` — returns funnel metrics (active follow-ups, conversions, status breakdown).
+- `GET /visitor-followups/{id}/logs` — retrieve delivery history for each automation step (email/SMS/task).
 
 ## 5. Service Layer & Jobs
 - `MemberService`

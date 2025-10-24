@@ -11,6 +11,7 @@ use App\Models\VolunteerAssignment;
 use App\Services\Rbac\RbacManager;
 use App\Services\VolunteerPipelineService;
 use App\Services\VolunteerService;
+use App\Support\VolunteerSignupStage;
 use App\Support\Tenancy\TenantManager;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -283,6 +284,14 @@ class VolunteerSeeder extends Seeder
             'metadata' => ['source' => 'website'],
         ]);
 
+        if ($websiteSignup) {
+            $pipelineService->updateSignup($websiteSignup, [
+                'stage' => VolunteerSignupStage::REVIEW,
+                'stage_notes' => 'Initial screening email sent.',
+                'follow_up_at' => Carbon::now()->addDays(3)->toIso8601String(),
+            ]);
+        }
+
         $memberSignup = $pipelineService->submitSignup([
             'tenant_id' => $tenant->id,
             'volunteer_role_id' => $roles->get('audio-technician')->id,
@@ -293,12 +302,15 @@ class VolunteerSeeder extends Seeder
         ]);
 
         if ($memberSignup) {
-            $pipelineService->updateSignup($memberSignup, ['status' => 'reviewed']);
+            $pipelineService->updateSignup($memberSignup, [
+                'stage' => VolunteerSignupStage::REVIEW,
+                'stage_notes' => 'Phone interview completed.',
+            ]);
 
             $targetGathering = $gatherings->get(5) ?? $gatherings->last();
 
             $pipelineService->updateSignup($memberSignup, [
-                'status' => 'confirmed',
+                'stage' => VolunteerSignupStage::READY,
                 'assignment' => [
                     'tenant_id' => $tenant->id,
                     'volunteer_role_id' => $roles->get('audio-technician')->id,

@@ -7,11 +7,15 @@ import {
   fetchVolunteerAssignments,
   fetchVolunteerAvailability,
   fetchVolunteerRoles,
+  fetchVolunteerSignups,
   fetchVolunteerTeams,
   swapVolunteerAssignments,
+  updateVolunteerSignup,
   upsertVolunteerAvailability,
+  deleteVolunteerSignup,
   type VolunteerAssignmentPayload,
   type VolunteerAvailabilityPayload,
+  type VolunteerSignupUpdatePayload,
 } from '@/lib/api/volunteers';
 import { useTenantId } from '@/lib/tenant';
 
@@ -112,6 +116,52 @@ export function useUpsertVolunteerAvailability() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['volunteer-availability'] });
+    },
+  });
+}
+
+export function useVolunteerSignups(filters: { status?: string; stage?: string; page?: number; per_page?: number } = {}) {
+  const tenantId = useTenantId();
+  const normalized = useMemo(() => ({ ...filters }), [filters]);
+
+  return useQuery({
+    queryKey: ['volunteer-signups', tenantId, normalized],
+    queryFn: async () => {
+      if (!tenantId) return { data: [], meta: undefined };
+      return fetchVolunteerSignups(tenantId, normalized);
+    },
+    enabled: Boolean(tenantId),
+  });
+}
+
+export function useUpdateVolunteerSignup() {
+  const tenantId = useTenantId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: VolunteerSignupUpdatePayload }) => {
+      if (!tenantId) throw new Error('Missing tenant id');
+      return updateVolunteerSignup(tenantId, id, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['volunteer-signups'] });
+      queryClient.invalidateQueries({ queryKey: ['volunteer-roles'] });
+    },
+  });
+}
+
+export function useDeleteVolunteerSignup() {
+  const tenantId = useTenantId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      if (!tenantId) throw new Error('Missing tenant id');
+      return deleteVolunteerSignup(tenantId, id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['volunteer-signups'] });
+      queryClient.invalidateQueries({ queryKey: ['volunteer-roles'] });
     },
   });
 }

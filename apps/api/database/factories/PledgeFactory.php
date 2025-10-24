@@ -34,6 +34,21 @@ class PledgeFactory extends Factory
             'status' => 'active',
             'notes' => $this->faker->optional()->sentence(),
             'metadata' => null,
+            'reminder_enabled' => false,
+            'reminder_cadence' => null,
+            'next_reminder_at' => null,
+            'last_reminder_sent_at' => null,
         ];
+    }
+
+    public function withReminders(string $cadence = 'monthly', ?string $nextReminder = null): self
+    {
+        return $this->state(function () use ($cadence, $nextReminder): array {
+            return [
+                'reminder_enabled' => true,
+                'reminder_cadence' => $cadence,
+                'next_reminder_at' => $nextReminder ?? now()->addWeek(),
+            ];
+        });
     }
 }

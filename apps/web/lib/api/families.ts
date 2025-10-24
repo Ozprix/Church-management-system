@@ -81,6 +81,47 @@ export interface FamilyPayload {
   members?: FamilyMemberPayload[];
 }
 
+export interface FamilyAnalyticsResponse {
+  totals: {
+    families: number;
+    average_household_size: number;
+    families_with_children: number;
+    families_without_primary_contact: number;
+  };
+  size_distribution: Array<{ label: string; total: number }>;
+  by_relationship: Array<{ relationship: string; total: number }>;
+  recent_families: Array<{
+    id: number;
+    family_name: string;
+    members_count: number;
+    created_at: string | null;
+  }>;
+  families_missing_primary: Array<{
+    id: number;
+    family_name: string;
+    members_count: number;
+    created_at: string | null;
+  }>;
+  filters?: {
+    cities: string[];
+    states: string[];
+    created_range?: {
+      earliest?: string | null;
+      latest?: string | null;
+    };
+  };
+}
+
+export interface FamilyAnalyticsFilters {
+  min_members?: number | null;
+  max_members?: number | null;
+  with_primary_contact?: boolean | null;
+  city?: string;
+  state?: string;
+  created_from?: string;
+  created_to?: string;
+}
+
 export interface FamilyDashboardResponse {
   stats: {
     total_families: number;
@@ -144,4 +185,44 @@ export async function updateFamily(tenantId: string, id: number, payload: Family
 
 export async function fetchFamilyDashboard(tenantId: string): Promise<FamilyDashboardResponse> {
   return apiFetch<FamilyDashboardResponse>('/v1/families/dashboard', {}, tenantId);
+}
+
+export function buildFamilyAnalyticsQuery(filters: FamilyAnalyticsFilters = {}): string {
+  const params = new URLSearchParams();
+  if (filters.min_members !== null && filters.min_members !== undefined) {
+    params.set('min_members', String(filters.min_members));
+  }
+  if (filters.max_members !== null && filters.max_members !== undefined) {
+    params.set('max_members', String(filters.max_members));
+  }
+  if (typeof filters.with_primary_contact === 'boolean') {
+    params.set('with_primary_contact', String(filters.with_primary_contact));
+  }
+  if (filters.city) {
+    params.set('city', filters.city);
+  }
+  if (filters.state) {
+    params.set('state', filters.state);
+  }
+  if (filters.created_from) {
+    params.set('created_from', filters.created_from);
+  }
+  if (filters.created_to) {
+    params.set('created_to', filters.created_to);
+  }
+
+  return params.size ? `?${params.toString()}` : '';
+}
+
+export async function fetchFamilyAnalytics(
+  tenantId: string,
+  filters: FamilyAnalyticsFilters = {}
+): Promise<FamilyAnalyticsResponse> {
+  const query = buildFamilyAnalyticsQuery(filters);
+  return apiFetch<FamilyAnalyticsResponse>(`/v1/families/analytics${query}`, {}, tenantId);
+}
+
+export function buildFamilyAnalyticsExportUrl(filters: FamilyAnalyticsFilters = {}): string {
+  const query = buildFamilyAnalyticsQuery(filters);
+  return `/v1/families/analytics/export${query}`;
 }

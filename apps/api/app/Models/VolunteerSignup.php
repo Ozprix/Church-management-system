@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\TenantScoped;
+use App\Support\VolunteerSignupStage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,10 @@ class VolunteerSignup extends Model
 {
     use HasFactory;
     use TenantScoped;
+
+    protected $attributes = [
+        'stage' => VolunteerSignupStage::APPLIED,
+    ];
 
     protected $fillable = [
         'tenant_id',
@@ -21,12 +26,17 @@ class VolunteerSignup extends Model
         'email',
         'phone',
         'status',
+        'stage',
         'applied_at',
         'reviewed_at',
         'confirmed_at',
         'confirmed_by',
+        'last_contacted_at',
+        'follow_up_at',
         'notes',
         'metadata',
+        'stage_history',
+        'onboarding_checklist',
     ];
 
     protected $casts = [
@@ -34,6 +44,10 @@ class VolunteerSignup extends Model
         'reviewed_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'metadata' => 'array',
+        'stage_history' => 'array',
+        'onboarding_checklist' => 'array',
+        'last_contacted_at' => 'datetime',
+        'follow_up_at' => 'datetime',
     ];
 
     public function member(): BelongsTo
