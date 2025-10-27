@@ -14,7 +14,7 @@
    - Volunteer pipeline overview page exists but still needs richer analytics (conversion rates, background check uploads) and bulk actions.
 
 3. **Notifications & reminders**
-   - Initial coordinator + volunteer emails added. Follow-up reminder scheduling still pending.
+   - Initial coordinator + volunteer emails added (see `volunteers:send-followups`). Follow-up reminder scheduler now runs hourly to ping coordinators when follow-up dates arrive.
 
 4. **Automations**
    - Automatic assignments on “ready” stage implemented. Remaining todo: background check integrations & plan usage audits.

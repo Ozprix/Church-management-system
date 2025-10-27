@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature\Volunteers;
 
 use App\Models\Member;
+use App\Models\Notification;
 use App\Models\Tenant;
 use App\Models\VolunteerAssignment;
 use App\Models\VolunteerRole;
+use App\Models\VolunteerSignup;
 use App\Support\VolunteerSignupStage;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -112,6 +115,35 @@ class VolunteerPipelineApiTest extends TestCase
             'tenant_id' => $tenant->id,
             'volunteer_assignment_id' => $assignment->id,
             'hours' => 3.00,
+        ]);
+    }
+
+    public function test_followup_command_sends_reminders(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = $this->actingAsTenantUser($tenant, roles: ['admin']);
+        $role = VolunteerRole::factory()->create(['tenant_id' => $tenant->id]);
+
+        /** @var VolunteerSignup $signup */
+        $signup = VolunteerSignup::factory()->create([
+            'tenant_id' => $tenant->id,
+            'volunteer_role_id' => $role->id,
+            'stage' => VolunteerSignupStage::REVIEW,
+            'status' => 'reviewed',
+            'follow_up_at' => Carbon::now()->subHour(),
+        ]);
+
+        Artisan::call('volunteers:send-followups', [
+            '--tenant' => $tenant->id,
+        ]);
+
+        $signup->refresh();
+
+        $this->assertNull($signup->follow_up_at);
+        $this->assertNotNull($signup->last_contacted_at);
+        $this->assertDatabaseHas('notifications', [
+            'tenant_id' => $tenant->id,
+            'recipient' => $user->email,
         ]);
     }
 }

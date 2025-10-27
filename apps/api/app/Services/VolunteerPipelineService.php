@@ -455,6 +455,36 @@ class VolunteerPipelineService
 
         return implode("\n", $lines);
     }
+    public function sendFollowUpReminder(VolunteerSignup $signup): void
+    {
+        $signup->loadMissing(['member', 'role', 'team']);
+        $tenant = Tenant::query()->findOrFail($signup->tenant_id);
+
+        $subject = sprintf('Follow up needed: %s', $signup->member?->full_name ?? $signup->name ?? 'Volunteer applicant');
+
+        $body = $this->buildCoordinatorMessage($signup, $signup->stage, 'needs follow-up');
+
+        $this->notifyCoordinators($tenant, $subject, $body, 'Automated reminder');
+
+        $history = $signup->stage_history ?? [];
+        $history[] = [
+            'from' => null,
+            'to' => $signup->stage,
+            'label' => VolunteerSignupStage::label($signup->stage),
+            'notes' => 'Automated follow-up reminder sent.',
+            'changed_by' => null,
+            'changed_at' => Carbon::now()->toIso8601String(),
+        ];
+
+        $signup->forceFill([
+            'last_contacted_at' => Carbon::now(),
+            'follow_up_at' => null,
+            'stage_history' => $history,
+        ])->save();
+
+        $this->volunteerService->refreshRoleAnalytics($signup->role);
+    }
+
 
     public function confirmAssignment(VolunteerAssignment $assignment, ?int $userId = null): VolunteerAssignment
     {

@@ -10,6 +10,7 @@ use App\Console\Commands\RunVisitorFollowups;
 use App\Console\Commands\SendFamilyRemindersCommand;
 use App\Console\Commands\SendMemberStaleProfilesAlertCommand;
 use App\Console\Commands\SendPledgeRemindersCommand;
+use App\Console\Commands\SendVolunteerSignupFollowupsCommand;
 use App\Console\Commands\RunMemberAnalyticsReportsCommand;
 use App\Console\Commands\SendVisitorOverdueRemindersCommand;
 use App\Console\Commands\TenantRunBatchCommand;
@@ -27,6 +28,7 @@ class Kernel extends ConsoleKernel
         SendFamilyRemindersCommand::class,
         SendMemberStaleProfilesAlertCommand::class,
         SendPledgeRemindersCommand::class,
+        SendVolunteerSignupFollowupsCommand::class,
         CheckLedgerBalanceCommand::class,
         RunMemberAnalyticsReportsCommand::class,
         SendVisitorOverdueRemindersCommand::class,
@@ -47,5 +49,6 @@ class Kernel extends ConsoleKernel
         $schedule->command('members:run-saved-reports')->dailyAt('06:00');
         $schedule->command('visitors:send-overdue-reminders')->dailyAt('09:00');
         $schedule->command('finance:ledger-check')->monthlyOn(1, '02:00');
+        $schedule->command('volunteers:send-followups')->hourly();
     }
 }

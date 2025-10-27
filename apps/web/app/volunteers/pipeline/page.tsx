@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
+import clsx from 'clsx';
 import Link from 'next/link';
 import {
   Badge,
@@ -59,6 +60,14 @@ export default function VolunteerPipelinePage() {
 
   const updateSignup = useUpdateVolunteerSignup();
   const deleteSignup = useDeleteVolunteerSignup();
+  const stageSummary = useMemo(
+    () =>
+      VOLUNTEER_SIGNUP_STAGES.map((stage) => ({
+        ...stage,
+        count: signups.filter((signup) => signup.stage === stage.value).length,
+      })),
+    [signups]
+  );
 
   const handleStageForm = async (event: FormEvent<HTMLFormElement>, signupId: number) => {
     event.preventDefault();
@@ -98,6 +107,27 @@ export default function VolunteerPipelinePage() {
     } catch (error) {
       pushToast({
         title: 'Unable to record contact',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleQuickFollowUp = async (signupId: number, days: number) => {
+    const target = new Date();
+    target.setDate(target.getDate() + days);
+
+    try {
+      await updateSignup.mutateAsync({
+        id: signupId,
+        payload: {
+          follow_up_at: target.toISOString(),
+        },
+      });
+      pushToast({ title: `Follow-up scheduled in ${days} day${days === 1 ? '' : 's'}`, variant: 'success' });
+    } catch (error) {
+      pushToast({
+        title: 'Unable to schedule follow-up',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'error',
       });
@@ -171,6 +201,15 @@ export default function VolunteerPipelinePage() {
         </div>
       </Card>
 
+      <Card padding="md" className="grid gap-3 md:grid-cols-3">
+        {stageSummary.map((summary) => (
+          <div key={summary.value} className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-slate-500">{summary.label}</p>
+            <p className="text-xl font-semibold text-slate-900">{summary.count}</p>
+          </div>
+        ))}
+      </Card>
+
       {isLoading ? (
         <Card padding="md">Loading volunteer pipeline…</Card>
       ) : signups.length === 0 ? (
@@ -182,9 +221,15 @@ export default function VolunteerPipelinePage() {
             const memberName = signup.member
               ? `${signup.member.first_name} ${signup.member.last_name}`
               : signup.name ?? 'Unknown applicant';
+            const followUpDate = signup.follow_up_at ? new Date(signup.follow_up_at) : null;
+            const followUpDue = followUpDate ? followUpDate.getTime() <= Date.now() : false;
 
             return (
-              <Card key={signup.id} padding="lg" className="space-y-4">
+              <Card
+                key={signup.id}
+                padding="lg"
+                className={clsx('space-y-4 border border-slate-200 shadow-sm', followUpDue && 'border-amber-400 shadow-amber-200')}
+              >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -197,6 +242,13 @@ export default function VolunteerPipelinePage() {
                     <div className="text-xs text-slate-500 space-x-3">
                       {signup.email ? <span>Email: {signup.email}</span> : null}
                       {signup.phone ? <span>Phone: {signup.phone}</span> : null}
+                      {followUpDate ? (
+                        <span className={clsx(followUpDue ? 'text-amber-600 font-medium' : undefined)}>
+                          Follow-up: {followUpDate.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span>Follow-up: not scheduled</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -245,10 +297,16 @@ export default function VolunteerPipelinePage() {
                       name="stage_notes"
                       rows={2}
                       placeholder="Add coordinator notes…"
-                      defaultValue=""
                     />
                   </div>
-                  <div className="md:col-span-4 flex justify-end gap-2">
+                  <div className="md:col-span-4 flex flex-wrap items-center justify-end gap-2">
+                    <span className="mr-auto text-xs text-slate-500">Quick follow-up</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleQuickFollowUp(signup.id, 3)}>
+                      in 3 days
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleQuickFollowUp(signup.id, 7)}>
+                      next week
+                    </Button>
                     <Button type="submit" loading={updateSignup.isPending}>
                       {updateSignup.isPending ? 'Updating…' : 'Save changes'}
                     </Button>
