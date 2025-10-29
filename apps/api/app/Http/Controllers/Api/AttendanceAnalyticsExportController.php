@@ -24,7 +24,8 @@ class AttendanceAnalyticsExportController extends Controller
             abort(422, __('Unable to resolve tenant for analytics export.'));
         }
 
-        $rows = $this->analytics->gatheringSummaries((int) $tenantId);
+        $filters = $this->analytics->parseFilters($request->query());
+        $rows = $this->analytics->gatheringSummaries((int) $tenantId, $filters);
         $filename = 'attendance-analytics-' . now()->format('Ymd_His') . '.csv';
 
         $headers = [

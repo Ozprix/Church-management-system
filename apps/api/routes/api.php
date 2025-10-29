@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AttendanceAnalyticsController;
 use App\Http\Controllers\Api\AttendanceExportController;
 use App\Http\Controllers\Api\AttendanceAnalyticsExportController;
+use App\Http\Controllers\Api\AttendanceAnalyticsReportController;
+use App\Http\Controllers\Api\AttendanceAnalyticsReportSnapshotController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\FamilyDashboardController;
@@ -216,6 +218,13 @@ Route::prefix('v1')->group(function (): void {
             ->name('attendance.analytics');
         Route::get('attendance/analytics/export', AttendanceAnalyticsExportController::class)
             ->name('attendance.analytics.export');
+        Route::apiResource('attendance-analytics-reports', AttendanceAnalyticsReportController::class);
+        Route::post('attendance-analytics-reports/{attendanceAnalyticsReport}/run', [AttendanceAnalyticsReportController::class, 'run']);
+        Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/export', [AttendanceAnalyticsReportController::class, 'export']);
+        Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/snapshots', [AttendanceAnalyticsReportSnapshotController::class, 'index'])
+            ->name('attendance.analytics.reports.snapshots.index');
+        Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/snapshots/{snapshot}', [AttendanceAnalyticsReportSnapshotController::class, 'download'])
+            ->name('attendance.analytics.reports.snapshots.download');
     });
 });
 

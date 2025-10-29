@@ -26,10 +26,19 @@ class AttendanceAnalyticsController extends Controller
             ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $payload = $this->analytics->metrics((int) $tenantId);
+        $filters = $this->analytics->parseFilters($request->query());
+        $payload = $this->analytics->metrics((int) $tenantId, $filters);
 
         return response()->json([
             'data' => $payload,
+            'meta' => [
+                'filters' => [
+                    'from' => $filters['from']->toDateString(),
+                    'to' => $filters['to']->toDateString(),
+                    'service_id' => $filters['service_id'],
+                    'status' => $filters['status'],
+                ],
+            ],
         ]);
     }
 }
