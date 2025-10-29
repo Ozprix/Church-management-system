@@ -23,7 +23,7 @@ import { useServices } from '@/hooks/use-services';
 import { useAttendanceAnalytics } from '@/hooks/use-attendance-analytics';
 import type { GatheringSummary } from '@/lib/api/gatherings';
 import type { AttendanceAnalytics } from '@/lib/api/attendance';
-import { buildAttendanceAnalyticsExportUrl, buildAttendanceBulkExportUrl, buildGatheringAttendanceExportUrl } from '@/lib/api/attendance';
+import { buildAttendanceAnalyticsExportUrl, buildAttendanceBulkExportUrl } from '@/lib/api/attendance';
 import { downloadFromApi } from '@/lib/download';
 import { getApiBaseUrl } from '@/lib/api/env';
 import { useTenantId } from '@/lib/tenant';
@@ -58,7 +58,10 @@ function AttendanceContent() {
   );
 
   const { data: gatheringsResponse, isLoading } = useGatherings(filters);
-  const gatherings = gatheringsResponse?.data ?? [];
+  const gatherings = useMemo(
+    () => gatheringsResponse?.data ?? [],
+    [gatheringsResponse?.data]
+  );
   const meta = gatheringsResponse?.meta;
 
   const { data: serviceResponse } = useServices({ per_page: 50 });
@@ -187,9 +190,17 @@ function AttendanceContent() {
           <h2 className="text-2xl font-semibold text-slate-900">Attendance</h2>
           <p className="text-sm text-slate-500">Track gatherings, attendance trends, and follow up on absences.</p>
         </div>
-        <Link href="/members" className="text-sm text-emerald-600 hover:text-emerald-700">
-          View member roster
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/attendance/reports">
+            <Button variant="secondary">Saved reports</Button>
+          </Link>
+          <Link href="/attendance/analytics">
+            <Button variant="secondary">View analytics</Button>
+          </Link>
+          <Link href="/members" className="text-sm text-emerald-600 hover:text-emerald-700">
+            View member roster
+          </Link>
+        </div>
       </header>
 
       <AttendanceAnalyticsSection data={analytics} isLoading={analyticsLoading} onExport={handleExport} />
@@ -433,11 +444,6 @@ function AttendanceAnalyticsSection({
 }
 
 function AttendanceTrend({ data }: { data: AttendanceAnalytics['trend'] }) {
-  const maxTotal = Math.max(
-    ...data.map((item) => item.present + item.absent + item.excused),
-    1
-  );
-
   return (
     <ul className="space-y-3">
       {data.map((item) => {
