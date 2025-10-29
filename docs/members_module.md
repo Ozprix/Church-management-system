@@ -83,6 +83,8 @@ Automations:
 - `POST /members/custom-fields`
 - `PUT /members/custom-fields/{id}`
 - `DELETE /members/custom-fields/{id}` (prevent delete if values exist unless `force=true`).
+- Field configuration supports file/document uploads with allowed extensions, MIME types, and max-size constraints. Uploaded metadata is returned to the PWA so staff can view or replace stored documents.
+- Member profiles expose a "Household documents" card that surfaces file uploads alongside structured fields; failed uploads surface inline validation messages to operators.
 
 ### Lifecycle / Attendance
 - `GET /members/{uuid}/lifecycle` — returns process run details.
@@ -94,6 +96,7 @@ Automations:
 - `POST /member-imports` — upload CSV to queue async import; `GET /member-imports` & `GET /member-imports/{id}` expose job status/metrics.
 - `GET /visitors/analytics` — returns funnel metrics (active follow-ups, conversions, status breakdown).
 - `GET /visitor-followups/{id}/logs` — retrieve delivery history for each automation step (email/SMS/task).
+- Workflow steps now include a rule builder that supports matching on member status/stage, attendance history, family assignment, and tags. Metadata also allows "staff email" escalations and manual task notes. The automation service evaluates these rules before dispatching each step and records why steps were skipped.
 
 ## 5. Service Layer & Jobs
 - `MemberService`
@@ -110,8 +113,10 @@ Automations:
 
 ## 7. Frontend Touchpoints (Next.js PWA)
 - Pages: `/members`, `/members/[uuid]`, `/families`, `/families/[id]`.
-- Analytics: `/members/analytics` dashboard summarising KPIs with export actions.
+- Analytics: `/members/analytics`, `/families/analytics`, `/attendance/analytics`, and `/visitors` funnel widgets summarise KPIs with export actions.
 - Components: Member list with filters, profile tabs (Overview, Families, Communication, Attendance), Family tree visualization.
+- Member detail includes document upload card, structured custom fields, and follow-up insights; visitors page surfaces workflow builder, funnel analytics, and automation logs.
+- Saved reports: `/attendance/reports` allows scheduled CSV/email digests with filters (service, status, date range).
 - API client integration using `@church/contracts` generated endpoints + React Query.
 - Form handling via React Hook Form + Zod validated against backend rules.
 

@@ -16,11 +16,11 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Member CRUD + validation | 🔄 | Controllers, resources, service layer, and feature coverage now include happy-path, validation failure, auditing assertions, filter/search + pagination scenarios, restore support, throttled bulk import/delete, async CSV import queue with monitoring, member audit timeline endpoints, and initial web dashboards (members list, analytics view); remaining UI polish includes richer charting and advanced filters. |
-| Custom fields & documents | 🔄 | API endpoints are scaffolded; file storage configuration, validation, and UI wiring pending. |
-| Family grouping & household comms | 🔄 | Controllers seeded; orchestration now enforces primary/emergency contacts, triggers role notifications, and exposes `/families/{id}/communications` for broadcast messaging. Remaining work: UI polish and advanced automation rules. |
-| Attendance tracking & kiosk mode | 🔄 | API supports check-in workflows and the new `/attendance/kiosk` PWA provides offline check-in with sync queues; remaining work: hardware QR integration and rich analytics. |
-| Visitor intake & lifecycle | 🔄 | Automations now queue follow-up steps, expose logs, and surface `/visitors/analytics` dashboards; remaining work: rule builder UI polish and deeper conversion funnels. |
+| Member CRUD + validation | ✅ | End-to-end flows cover validation, auditing, bulk operations, analytics dashboards, and QA regression. Remaining enhancements (advanced filtering, richer charts) tracked as Phase 1.1 polish tasks. |
+| Custom fields & documents | ✅ | Admins can configure custom fields with file-type controls; member profiles expose document uploads with inline errors and download links. |
+| Family grouping & household comms | ✅ | Households manage assignments/contacts, analytics highlight follow-up gaps, and document storage supports pastoral coordination. Future automations graduate to Phase 2. |
+| Attendance tracking & kiosk mode | 🔄 | API supports check-in workflows, the `/attendance/kiosk` PWA provides offline sync, `/attendance/analytics` surfaces trends + exports, and saved reports (`/attendance/reports`) now schedule recurring summaries; remaining work: hardware QR integration. |
+| Visitor intake & lifecycle | ✅ | Rule builder, staff email steps, and contextual automation checks are live; analytics and funnels surface conversion metrics, with logs noting skipped rules. |
 | Reporting (directory, attendance dashboard) | ⏳ | Analytics controllers started, dashboards and exports need polishing and UI integration. |
 
 ## Phase 2 – Financial Suite
@@ -63,7 +63,8 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 ## Immediate Next Actions
 
+- Run the Phase 1 QA checklist (see `docs/phase1-qa-checklist.md`) across members, families, custom fields, attendance, and visitor flows.
+- Capture any regressions or UX polish items as Phase 1.1 follow-ups.
 - Implement tenant-level policies for requiring 2FA on high-privilege roles and expose compliance reporting.
-- Prioritize member module feature tests and auditing hooks to close Phase 1 gaps.
 - Extend tenant CLI helpers for batch execution (e.g., run commands across many tenants) and document operational playbooks.
-- Monitor the new API CI workflow and extend coverage (linting, parallelisation) once the baseline stabilises.
+- Monitor the API CI workflow and extend coverage (linting, parallelisation) once the baseline stabilises.
