@@ -7,6 +7,7 @@ namespace Tests\Feature\Auth;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Rbac\RbacManager;
+use App\Services\Security\TenantSecurityPolicyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Services\TwoFactorAuthenticationService;
 use Illuminate\Support\Arr;
@@ -283,6 +284,129 @@ class AuthControllerTest extends TestCase
         $user->refresh();
         $this->assertNotEmpty($user->two_factor_recovery_codes);
 
+    }
+
+    public function test_enforced_two_factor_blocks_access_until_configured(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        /** @var RbacManager $rbac */
+        $rbac = app(RbacManager::class);
+        $rbac->bootstrapTenant($tenant);
+
+        /** @var TenantSecurityPolicyService $policies */
+        $policies = app(TenantSecurityPolicyService::class);
+        $policies->updatePolicy($tenant, [
+            'enforce_two_factor' => true,
+            'enforced_role_slugs' => ['tenant_owner'],
+            'enforced_permission_slugs' => [],
+        ]);
+
+        $user = User::factory()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'owner@example.com',
+            'password' => bcrypt('secret-pass'),
+        ]);
+
+        $rbac->assignRole($user, 'tenant_owner');
+        $rbac->grantPermissions($user, ['members.view']);
+
+        $loginResponse = $this->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->postJson('/api/v1/auth/login', [
+                'email' => 'owner@example.com',
+                'password' => 'secret-pass',
+            ]);
+
+        $loginResponse->assertOk()
+            ->assertJsonPath('two_factor.required', true)
+            ->assertJsonPath('two_factor.compliant', false);
+
+        $token = $loginResponse->json('token');
+
+        $blocked = $this->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->withToken($token)
+            ->getJson('/api/v1/members');
+
+        $blocked->assertStatus(423)->assertJsonPath('reason', 'two_factor_required');
+
+        Carbon::setTestNow(now());
+
+        $setupResponse = $this->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->withToken($token)
+            ->postJson('/api/v1/auth/two-factor/setup');
+
+        $setupResponse->assertOk()->assertJsonStructure(['secret', 'qr_code_uri', 'recovery_codes']);
+
+        $secret = $setupResponse->json('secret');
+
+        /** @var TwoFactorAuthenticationService $twoFactor */
+        $twoFactor = app(TwoFactorAuthenticationService::class);
+        $code = $twoFactor->currentCode($secret);
+
+        $confirmResponse = $this->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->withToken($token)
+            ->postJson('/api/v1/auth/two-factor/confirm', [
+                'code' => $code,
+            ]);
+
+        $confirmResponse->assertOk();
+
+        $loginWithTotp = $this->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->postJson('/api/v1/auth/login', [
+                'email' => 'owner@example.com',
+                'password' => 'secret-pass',
+                'code' => $twoFactor->currentCode($secret),
+            ]);
+
+        $loginWithTotp->assertOk()
+            ->assertJsonPath('two_factor.required', true)
+            ->assertJsonPath('two_factor.compliant', true);
+
+        $compliantToken = $loginWithTotp->json('token');
+
+        $allowed = $this->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->withToken($compliantToken)
+            ->getJson('/api/v1/members');
+
+        $allowed->assertOk();
+
+        Carbon::setTestNow();
+    }
+
+    public function test_cannot_disable_two_factor_when_policy_requires_it(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = $this->actingAsTenantAdmin($tenant);
+
+        /** @var TenantSecurityPolicyService $policies */
+        $policies = app(TenantSecurityPolicyService::class);
+        $policies->updatePolicy($tenant, [
+            'enforce_two_factor' => true,
+            'enforced_role_slugs' => ['admin'],
+            'enforced_permission_slugs' => [],
+        ]);
+
+        /** @var TwoFactorAuthenticationService $twoFactor */
+        $twoFactor = app(TwoFactorAuthenticationService::class);
+        $secret = $twoFactor->generateSecret($user);
+        $recoveryCodes = $twoFactor->generateRecoveryCodes();
+
+        $user->forceFill([
+            'two_factor_secret' => $twoFactor->encryptSecret($secret),
+            'two_factor_recovery_codes' => $twoFactor->hashRecoveryCodes($recoveryCodes),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+
+        $response = $this->withHeader('X-Tenant-ID', (string) $tenant->uuid)
+            ->deleteJson('/api/v1/auth/two-factor', [
+                'recovery_code' => Arr::first($recoveryCodes),
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('reason', 'two_factor_enforced');
+
+        $user->refresh();
+        $this->assertTrue($user->hasTwoFactorEnabled());
     }
 
     public function test_disable_two_factor_with_recovery_code(): void

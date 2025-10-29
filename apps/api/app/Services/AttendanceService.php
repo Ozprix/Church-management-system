@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\AttendanceRecorded;
 use App\Models\AttendanceRecord;
 use App\Models\Gathering;
 use App\Models\Member;
@@ -142,7 +143,7 @@ class AttendanceService
             $payload['checked_in_at'] = Carbon::now();
         }
 
-        return AttendanceRecord::updateOrCreate(
+        $record = AttendanceRecord::updateOrCreate(
             [
                 'tenant_id' => $gathering->tenant_id,
                 'gathering_id' => $gathering->id,
@@ -150,6 +151,10 @@ class AttendanceService
             ],
             $payload
         );
+
+        event(new AttendanceRecorded($record->fresh(['member', 'gathering.service'])));
+
+        return $record;
     }
 
     public function bulkRecordAttendance(Gathering $gathering, array $members, string $status = 'present'): void

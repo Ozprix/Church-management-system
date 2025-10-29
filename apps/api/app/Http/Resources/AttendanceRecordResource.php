@@ -20,6 +20,7 @@ class AttendanceRecordResource extends JsonResource
             'checked_in_at' => $this->checked_in_at?->toIso8601String(),
             'checked_out_at' => $this->checked_out_at?->toIso8601String(),
             'notes' => $this->notes,
+            'absence_followup_active' => (bool) ($this->member?->visitorFollowups?->isNotEmpty()),
             'member' => MemberSummaryResource::make($this->whenLoaded('member')),
         ];
     }

@@ -123,6 +123,11 @@ class Member extends Model
         return $this->hasMany(VolunteerAvailability::class, 'member_id');
     }
 
+    public function visitorFollowups(): HasMany
+    {
+        return $this->hasMany(VisitorFollowup::class);
+    }
+
     public function donations(): HasMany
     {
         return $this->hasMany(Donation::class);

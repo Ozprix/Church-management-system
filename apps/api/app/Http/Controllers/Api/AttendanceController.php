@@ -25,7 +25,12 @@ class AttendanceController extends Controller
     public function index(Request $request, Gathering $gathering): JsonResponse
     {
         $records = $gathering->attendanceRecords()
-            ->with('member')
+            ->with(['member' => function ($query): void {
+                $query->with(['visitorFollowups' => function ($inner): void {
+                    $inner->where('metadata->trigger', 'attendance_absence')
+                        ->whereIn('status', ['pending', 'in_progress']);
+                }]);
+            }])
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
             ->orderBy('created_at', 'desc')
             ->paginate($request->integer('per_page', 25));
@@ -41,7 +46,12 @@ class AttendanceController extends Controller
 
         $record = $this->attendanceService->recordAttendance($gathering, $member, $request->validated());
 
-        return AttendanceRecordResource::make($record->load('member'))->response()->setStatusCode(201);
+        $record->load(['member.visitorFollowups' => function ($query): void {
+            $query->where('metadata->trigger', 'attendance_absence')
+                ->whereIn('status', ['pending', 'in_progress']);
+        }]);
+
+        return AttendanceRecordResource::make($record)->response()->setStatusCode(201);
     }
 
     public function update(RecordAttendanceRequest $request, Gathering $gathering, AttendanceRecord $attendanceRecord): JsonResponse
@@ -54,7 +64,12 @@ class AttendanceController extends Controller
 
         $record = $this->attendanceService->recordAttendance($gathering, $member, $request->validated());
 
-        return AttendanceRecordResource::make($record->load('member'))->response();
+        $record->load(['member.visitorFollowups' => function ($query): void {
+            $query->where('metadata->trigger', 'attendance_absence')
+                ->whereIn('status', ['pending', 'in_progress']);
+        }]);
+
+        return AttendanceRecordResource::make($record)->response();
     }
 
     public function bulk(BulkAttendanceRequest $request, Gathering $gathering): JsonResponse

@@ -110,6 +110,7 @@ If you need to pass additional Artisan flags, append them after the command (`te
 - See `docs/devops.md` for the full DevOps guide and `docs/secrets-management.md` for handling encrypted `.env` files with SOPS.
 
 - Attendance kiosk lives at `/attendance/kiosk` in the PWA. It caches data for offline use and stores check-ins locally until the device reconnects. Pending check-ins sync automatically once online.
+- Member custom-field uploads write to the `custom_fields` filesystem disk (`storage/app/custom-fields` by default). Adjust `CUSTOM_FIELD_FILES_*` variables in `apps/api/.env` if you want to point at S3 or another bucket; remember to set a `visibility` that matches your storage provider.
 
 ## 10. Next Actions
 - Install dependencies (`pnpm install`) after corepack/pnpm is enabled and network access is available.

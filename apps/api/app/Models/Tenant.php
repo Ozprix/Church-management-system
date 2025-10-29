@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Finance\ChartOfAccountsService;
+use App\Services\Security\TenantSecurityPolicyService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -43,6 +44,7 @@ class Tenant extends Model
 
         static::created(function (self $tenant) {
             app(ChartOfAccountsService::class)->ensureDefaultsForTenant($tenant);
+            app(TenantSecurityPolicyService::class)->initializeForTenant($tenant);
         });
     }
 

@@ -76,8 +76,9 @@ class ExpenseApiTest extends TestCase
             ->postJson("/api/v1/expenses/{$expense->id}/submit");
 
         $response->assertOk()
-            ->assertJsonPath('data.status', Expense::STATUS_PENDING)
-            ->assertNotNull($response->json('data.submitted_at'));
+            ->assertJsonPath('data.status', Expense::STATUS_PENDING);
+
+        $this->assertNotNull($response->json('data.submitted_at'));
 
         $expense->refresh();
         $this->assertSame(Expense::STATUS_PENDING, $expense->status);

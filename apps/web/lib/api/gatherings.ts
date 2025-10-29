@@ -54,6 +54,7 @@ export interface AttendanceRecord {
   checked_in_at?: string | null;
   checked_out_at?: string | null;
   notes?: Record<string, unknown> | null;
+  absence_followup_active?: boolean;
   member?: MemberSummary | null;
 }
 

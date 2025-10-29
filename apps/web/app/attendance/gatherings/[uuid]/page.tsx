@@ -20,6 +20,10 @@ import {
 import { useGathering } from '@/hooks/use-gathering';
 import { useAttendance, useRecordAttendance, useUpdateAttendance } from '@/hooks/use-attendance';
 import { useMembers } from '@/hooks/use-members';
+import { downloadFromApi } from '@/lib/download';
+import { getApiBaseUrl } from '@/lib/api/env';
+import { buildGatheringAttendanceExportUrl } from '@/lib/api/attendance';
+import { useTenantId } from '@/lib/tenant';
 
 const ATTENDANCE_STATUS_OPTIONS = [
   { value: 'present', label: 'Present' },
@@ -33,6 +37,7 @@ function GatheringDetailContent() {
   const router = useRouter();
   const pathname = usePathname();
   const { pushToast } = useToast();
+  const tenantId = useTenantId();
 
   const statusFilter = searchParams.get('status') ?? '';
   const page = Number(searchParams.get('page') ?? '1');
@@ -115,6 +120,41 @@ function GatheringDetailContent() {
     [updateParams]
   );
 
+  const handleDownload = useCallback(
+    async (format: 'csv' | 'pdf') => {
+      if (!tenantId) {
+        pushToast({ title: 'Unable to export', description: 'Missing tenant context', variant: 'error' });
+        return;
+      }
+
+      try {
+        const url = `${getApiBaseUrl()}${buildGatheringAttendanceExportUrl(uuid, format)}`;
+        const headers: HeadersInit = {
+          Accept: format === 'pdf' ? 'application/pdf' : 'text/csv',
+          'X-Tenant-ID': tenantId,
+        };
+        const token = process.env.NEXT_PUBLIC_API_TOKEN;
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        await downloadFromApi(url, { headers }, `attendance-${uuid}.${format}`);
+        pushToast({
+          title: 'Export ready',
+          description: format === 'pdf' ? 'PDF download started.' : 'CSV download started.',
+          variant: 'success',
+        });
+      } catch (error) {
+        pushToast({
+          title: 'Export failed',
+          description: error instanceof Error ? error.message : 'Unable to download attendance report.',
+          variant: 'error',
+        });
+      }
+    },
+    [pushToast, tenantId, uuid]
+  );
+
   if (isLoading) {
     return <p className="text-slate-500">Loading gathering…</p>;
   }
@@ -135,7 +175,7 @@ function GatheringDetailContent() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-slate-900">{gathering.name}</h2>
           <p className="text-sm text-slate-500">
@@ -144,9 +184,31 @@ function GatheringDetailContent() {
           </p>
           {gathering.service?.name && <p className="text-sm text-slate-500">Service: {gathering.service.name}</p>}
         </div>
-        <Link href="/attendance" className="text-sm text-emerald-600 hover:text-emerald-700">
-          Back to attendance
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                void handleDownload('csv');
+              }}
+            >
+              Download CSV
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                void handleDownload('pdf');
+              }}
+            >
+              Download PDF
+            </Button>
+          </div>
+          <Link href="/attendance" className="text-sm text-emerald-600 hover:text-emerald-700">
+            Back to attendance
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -237,7 +299,16 @@ function GatheringDetailContent() {
                 {attendanceRecords.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell className="font-medium text-slate-900">
-                      {record.member ? `${record.member.first_name} ${record.member.last_name}` : 'Unknown member'}
+                      <div className="flex items-center gap-2">
+                        <span>
+                          {record.member ? `${record.member.first_name} ${record.member.last_name}` : 'Unknown member'}
+                        </span>
+                        {record.absence_followup_active ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-700">
+                            follow-up
+                          </span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="capitalize">{record.status}</TableCell>
                     <TableCell>

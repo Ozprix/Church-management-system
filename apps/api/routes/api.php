@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AttendanceAnalyticsController;
+use App\Http\Controllers\Api\AttendanceExportController;
+use App\Http\Controllers\Api\AttendanceAnalyticsExportController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\FamilyDashboardController;
@@ -35,6 +38,7 @@ use App\Http\Controllers\Api\Membership\MembershipProcessReportController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationRuleController;
 use App\Http\Controllers\Api\NotificationTemplateController;
+use App\Http\Controllers\Api\Security\TenantSecurityPolicyController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\FinanceAnalyticsController;
 use App\Http\Controllers\Api\FinanceTrialBalanceController;
@@ -75,7 +79,7 @@ Route::prefix('v1')->group(function (): void {
         ->withoutMiddleware(\App\Http\Middleware\ResolveTenant::class)
         ->withoutMiddleware('auth:sanctum');
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'two_factor.enforce'])->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/two-factor/setup', [AuthController::class, 'setupTwoFactor'])->name('auth.2fa.setup');
@@ -85,6 +89,15 @@ Route::prefix('v1')->group(function (): void {
         Route::post('auth/two-factor/admin-reset', [UserTwoFactorAdminController::class, 'reset'])
             ->name('auth.2fa.admin-reset')
             ->middleware('can:users.manage_security');
+
+        Route::prefix('security/two-factor')->group(function (): void {
+            Route::get('policy', [TenantSecurityPolicyController::class, 'show'])
+                ->name('security.two-factor.policy.show');
+            Route::put('policy', [TenantSecurityPolicyController::class, 'update'])
+                ->name('security.two-factor.policy.update');
+            Route::get('compliance', [TenantSecurityPolicyController::class, 'compliance'])
+                ->name('security.two-factor.compliance');
+        });
 
         Route::get('member-imports', [MemberImportController::class, 'index'])
             ->name('member-imports.index');
@@ -195,6 +208,14 @@ Route::prefix('v1')->group(function (): void {
         Route::post('gatherings/{gathering}/attendance/bulk', [AttendanceController::class, 'bulk']);
         Route::patch('gatherings/{gathering}/attendance/{attendanceRecord}', [AttendanceController::class, 'update']);
         Route::delete('gatherings/{gathering}/attendance/{attendanceRecord}', [AttendanceController::class, 'destroy']);
+        Route::get('gatherings/{gathering}/attendance/export', [AttendanceExportController::class, 'show'])
+            ->name('attendance.gathering.export');
+        Route::post('attendance/exports', [AttendanceExportController::class, 'bulk'])
+            ->name('attendance.export.bulk');
+        Route::get('attendance/analytics', AttendanceAnalyticsController::class)
+            ->name('attendance.analytics');
+        Route::get('attendance/analytics/export', AttendanceAnalyticsExportController::class)
+            ->name('attendance.analytics.export');
     });
 });
 
