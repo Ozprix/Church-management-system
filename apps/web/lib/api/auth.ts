@@ -1,4 +1,4 @@
-import { apiFetch, ApiError } from '@/lib/api/http';
+import { apiFetch } from '@/lib/api/http';
 
 export type CurrentUser = {
   id: number;

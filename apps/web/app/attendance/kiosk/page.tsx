@@ -52,7 +52,10 @@ export default function AttendanceKioskPage() {
     status: 'scheduled',
     per_page: 50,
   });
-  const allGatherings = gatheringsResponse?.data ?? [];
+  const allGatherings = useMemo(
+    () => gatheringsResponse?.data ?? [],
+    [gatheringsResponse?.data]
+  );
   const [selectedGatheringUuid, setSelectedGatheringUuid] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -69,7 +72,10 @@ export default function AttendanceKioskPage() {
     per_page: 200,
     sort: 'first_name',
   });
-  const members = membersResponse?.data ?? [];
+  const members = useMemo(
+    () => membersResponse?.data ?? [],
+    [membersResponse?.data]
+  );
 
   const { data: attendanceResponse } = useAttendance(selectedGatheringUuid, {
     status: 'present',

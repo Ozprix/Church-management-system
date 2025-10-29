@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import AccountSecurityPage from './page';
@@ -53,7 +54,9 @@ describe('AccountSecurityPage', () => {
 
     render(<AccountSecurityPage />);
 
-    expect(await screen.findByText(/Two-factor authentication/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /Two-factor authentication/i, level: 2 })
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText(/Operator reset/i)).toBeInTheDocument();
     });
@@ -62,7 +65,9 @@ describe('AccountSecurityPage', () => {
   it('hides operator reset controls without permission', async () => {
     render(<AccountSecurityPage />);
 
-    expect(await screen.findByText(/Two-factor authentication/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /Two-factor authentication/i, level: 2 })
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByText(/Operator reset/i)).not.toBeInTheDocument();
     });

@@ -6,7 +6,7 @@ export interface VisitorWorkflowStep {
   step_number: number;
   name?: string | null;
   delay_minutes: number;
-  channel: 'email' | 'sms' | 'task';
+  channel: 'email' | 'sms' | 'task' | 'staff_email';
   notification_template_id?: number | null;
   metadata?: Record<string, unknown> | null;
   is_active: boolean;
@@ -134,7 +134,7 @@ export async function addVisitorWorkflowStep(
     step_number: number;
     name?: string | null;
     delay_minutes?: number;
-    channel: 'email' | 'sms' | 'task';
+    channel: 'email' | 'sms' | 'task' | 'staff_email';
     notification_template_id?: number | null;
     metadata?: Record<string, unknown> | null;
     is_active?: boolean;

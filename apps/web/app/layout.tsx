@@ -52,6 +52,9 @@ export default function RootLayout({
                 <Link href="/members" className="hover:text-emerald-600">
                   Members
                 </Link>
+                <Link href="/families" className="hover:text-emerald-600">
+                  Families
+                </Link>
                 <Link href="/account/security" className="hover:text-emerald-600">
                   Account security
                 </Link>

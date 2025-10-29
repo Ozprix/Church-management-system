@@ -341,6 +341,10 @@ export default function MemberCustomFieldsPage() {
                   value={extensionsInput}
                   onChange={(event) => setExtensionsInput(event.target.value)}
                 />
+                <p className="mt-1 text-xs text-slate-500">Include the leading dot and separate multiple values with commas.</p>
+                {getError('config.allowed_extensions') ? (
+                  <p className="mt-1 text-xs text-rose-600">{getError('config.allowed_extensions')}</p>
+                ) : null}
               </div>
               <div>
                 <Label htmlFor="field-mimes">Allowed MIME types</Label>
@@ -350,6 +354,10 @@ export default function MemberCustomFieldsPage() {
                   value={mimeTypesInput}
                   onChange={(event) => setMimeTypesInput(event.target.value)}
                 />
+                <p className="mt-1 text-xs text-slate-500">Use full MIME identifiers. Separate with commas.</p>
+                {getError('config.allowed_mimetypes') ? (
+                  <p className="mt-1 text-xs text-rose-600">{getError('config.allowed_mimetypes')}</p>
+                ) : null}
               </div>
               <div>
                 <Label htmlFor="field-max-size">Max size (KB)</Label>
@@ -360,13 +368,23 @@ export default function MemberCustomFieldsPage() {
                   value={maxSize}
                   onChange={(event) => setMaxSize(event.target.value)}
                 />
+                <p className="mt-1 text-xs text-slate-500">Set the maximum upload size in kilobytes. Leave blank for default limits.</p>
+                {getError('config.max_size') ? (
+                  <p className="mt-1 text-xs text-rose-600">{getError('config.max_size')}</p>
+                ) : null}
               </div>
             </div>
           ) : null}
 
           <div className="md:col-span-2 flex items-center justify-end gap-3">
             <Button type="submit" loading={mutation.isPending}>
-              {mutation.isPending ? 'Creating…' : 'Create field'}
+              {mutation.isPending
+                ? editingField
+                  ? 'Saving…'
+                  : 'Creating…'
+                : editingField
+                  ? 'Save changes'
+                  : 'Create field'}
             </Button>
           </div>
         </form>

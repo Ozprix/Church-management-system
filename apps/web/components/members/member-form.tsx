@@ -40,6 +40,7 @@ interface EditableFamily {
 type FileMetadata = CustomFieldFileMetadata;
 
 interface EditableCustomValue {
+  formIndex: number;
   field_id: number;
   label: string;
   data_type: string;
@@ -47,6 +48,7 @@ interface EditableCustomValue {
   options?: string[];
   file?: FileMetadata | null;
   accept?: string;
+  error?: string | null;
 }
 
 type CustomValueChangeHandler = (fieldId: number, value: string) => void;
@@ -241,7 +243,7 @@ export function MemberForm({ member, mode }: MemberFormProps) {
 
   const customValues = useMemo(() => {
     const existing = member?.custom_values ?? [];
-    return customFields.map<EditableCustomValue>((field) => {
+    return customFields.map<EditableCustomValue>((field, index) => {
       const current = existing.find((value) => value.field_id === field.id);
       let value = '';
       let fileMetadata: FileMetadata | null = null;
@@ -283,6 +285,7 @@ export function MemberForm({ member, mode }: MemberFormProps) {
       }
 
       return {
+        formIndex: index,
         field_id: field.id,
         label: field.name,
         data_type: field.data_type,
@@ -290,12 +293,23 @@ export function MemberForm({ member, mode }: MemberFormProps) {
         options,
         file: fileMetadata,
         accept,
+        error: null,
       };
     });
   }, [customFields, member?.custom_values]);
 
   const [customValueState, setCustomValueState] = useState(customValues);
   const [uploadingFiles, setUploadingFiles] = useState<Record<number, boolean>>({});
+
+  const documentFields = useMemo(
+    () => customValueState.filter((field) => field.data_type === 'file' || field.data_type === 'signature'),
+    [customValueState]
+  );
+
+  const structuredCustomFields = useMemo(
+    () => customValueState.filter((field) => field.data_type !== 'file' && field.data_type !== 'signature'),
+    [customValueState]
+  );
 
   useEffect(() => {
     setCustomValueState(customValues);
@@ -438,7 +452,15 @@ export function MemberForm({ member, mode }: MemberFormProps) {
 
   const handleCustomValueChange = (fieldId: number, value: string) => {
     setCustomValueState((prev) =>
-      prev.map((item) => (item.field_id === fieldId ? { ...item, value } : item))
+      prev.map((item) =>
+        item.field_id === fieldId
+          ? {
+              ...item,
+              value,
+              error: null,
+            }
+          : item
+      )
     );
   };
 
@@ -457,6 +479,7 @@ export function MemberForm({ member, mode }: MemberFormProps) {
             ? {
                 ...item,
                 file: metadata,
+                error: null,
               }
             : item
         )
@@ -465,6 +488,16 @@ export function MemberForm({ member, mode }: MemberFormProps) {
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Upload failed';
       pushToast({ title: 'Upload failed', description: message, variant: 'error' });
+      setCustomValueState((prev) =>
+        prev.map((item) =>
+          item.field_id === fieldId
+            ? {
+                ...item,
+                error: message,
+              }
+            : item
+        )
+      );
     } finally {
       setUploadingFiles((prev) => {
         const copy = { ...prev };
@@ -482,6 +515,7 @@ export function MemberForm({ member, mode }: MemberFormProps) {
               ...item,
               value: '',
               file: null,
+              error: null,
             }
           : item
       )
@@ -861,12 +895,50 @@ export function MemberForm({ member, mode }: MemberFormProps) {
           </div>
         </section>
 
-        {customValueState.length > 0 && (
+        {documentFields.length > 0 && (
+          <section className="space-y-4 rounded-lg border border-slate-200 p-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-lg font-semibold text-slate-900">Household documents</h3>
+              <p className="text-sm text-slate-500">
+                Upload agreements, waivers, or signed forms for this family. Existing files can be viewed
+                or replaced at any time.
+              </p>
+            </div>
+            <div className="space-y-4">
+              {documentFields.map((field) => {
+                const customErrors = getFieldErrors(`custom_values.${field.formIndex}.value`);
+                const uploading = Boolean(uploadingFiles[field.field_id]);
+                const combinedError = field.error ?? customErrors[0] ?? null;
+                return (
+                  <div key={field.field_id} className="space-y-2">
+                    <FileUploadField
+                      label={field.label}
+                      description={
+                        field.accept ? `Allowed types: ${field.accept.split(',').join(', ')}` : undefined
+                      }
+                      fileName={field.file?.name ?? null}
+                      fileSize={field.file?.size ?? null}
+                      downloadUrl={field.file?.url ?? null}
+                      accept={field.accept}
+                      uploading={uploading}
+                      error={combinedError}
+                      onSelectFile={(file) => handleCustomFileUpload(field.field_id, file)}
+                      onRemove={() => handleCustomFileRemove(field.field_id)}
+                      buttonLabel={field.data_type === 'signature' ? 'Upload signature' : 'Upload document'}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {structuredCustomFields.length > 0 && (
           <section className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-900">Custom fields</h3>
             <div className="grid gap-4 md:grid-cols-2">
-              {customValueState.map((field, index) => {
-                const customErrors = getFieldErrors(`custom_values.${index}.value`);
+              {structuredCustomFields.map((field) => {
+                const customErrors = getFieldErrors(`custom_values.${field.formIndex}.value`);
                 const uploading = Boolean(uploadingFiles[field.field_id]);
 
                 return (

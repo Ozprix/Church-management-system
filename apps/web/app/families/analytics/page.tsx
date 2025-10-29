@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Button,
@@ -18,6 +18,7 @@ import {
   TableRow,
   useToast,
 } from '@church/ui';
+import { AnalyticsBarChartCard } from '@/components/analytics/widgets';
 import { useFamilyAnalytics } from '@/hooks/use-family-analytics';
 import { useTenantId } from '@/lib/tenant';
 import { FamilyAnalyticsFilters, buildFamilyAnalyticsExportUrl } from '@/lib/api/families';
@@ -30,11 +31,109 @@ export default function FamilyAnalyticsPage() {
   const tenantId = useTenantId();
   const { pushToast } = useToast();
   const [filters, setFilters] = useState<FamilyAnalyticsFilters>({});
+  const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const { data, isLoading } = useFamilyAnalytics(filters);
 
-  const availableCities = data?.filters?.cities ?? [];
-  const availableStates = data?.filters?.states ?? [];
+  const availableCities = useMemo(() => data?.filters?.cities ?? [], [data?.filters?.cities]);
+  const availableStates = useMemo(() => data?.filters?.states ?? [], [data?.filters?.states]);
   const createdRange = data?.filters?.created_range ?? {};
+  const totals = data?.totals ?? {};
+  const totalFamilies = typeof totals.families === 'number' ? totals.families : 0;
+  const familiesWithPrimary =
+    typeof totals.families_with_primary_contact === 'number'
+      ? totals.families_with_primary_contact
+      : null;
+  const familiesWithoutPrimary =
+    typeof totals.families_without_primary_contact === 'number'
+      ? totals.families_without_primary_contact
+      : null;
+  const primaryCoveragePct =
+    familiesWithPrimary !== null && totalFamilies > 0
+      ? Math.round((familiesWithPrimary / totalFamilies) * 100)
+      : null;
+  const missingPrimaryPct =
+    familiesWithoutPrimary !== null && totalFamilies > 0
+      ? Math.round((familiesWithoutPrimary / totalFamilies) * 100)
+      : null;
+  const newThisMonth = typeof totals.new_this_month === 'number' ? totals.new_this_month : null;
+  const newLastMonth = typeof totals.new_last_month === 'number' ? totals.new_last_month : null;
+  const growthVsLastMonth =
+    typeof totals.growth_vs_last_month === 'number' ? totals.growth_vs_last_month : null;
+  const largestHouseholdHelper =
+    typeof totals.largest_household === 'number' && totals.largest_household > 0
+      ? `Largest household: ${totals.largest_household}`
+      : undefined;
+  const withoutChildren =
+    typeof totals.families_without_children === 'number'
+      ? totals.families_without_children
+      : null;
+  const withChildrenHelper =
+    withoutChildren !== null ? `Without children: ${withoutChildren}` : undefined;
+  const growthDescriptor =
+    growthVsLastMonth !== null ? `${growthVsLastMonth > 0 ? '+' : ''}${growthVsLastMonth}% vs last month` : null;
+  const lastMonthDescriptor =
+    newLastMonth !== null ? `Last month: ${newLastMonth}` : null;
+  const newHouseholdsHelper =
+    [growthDescriptor, lastMonthDescriptor].filter(Boolean).join(' • ') || undefined;
+
+  const quickFilters = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const isoThirty = thirtyDaysAgo.toISOString().slice(0, 10);
+
+    const base = [
+      {
+        id: 'primary:missing',
+        label: 'Missing primary contact',
+        helper: 'Households without a primary contact',
+        build: (): FamilyAnalyticsFilters => ({ with_primary_contact: false }),
+      },
+      {
+        id: 'primary:present',
+        label: 'Has primary contact',
+        helper: 'Households with assigned primary contact',
+        build: (): FamilyAnalyticsFilters => ({ with_primary_contact: true }),
+      },
+      {
+        id: 'children:with',
+        label: 'Has children',
+        helper: 'Includes child or dependent relationships',
+        build: (): FamilyAnalyticsFilters => ({ with_children: true }),
+      },
+      {
+        id: 'size:large',
+        label: '4+ members',
+        helper: 'Minimum household size of four',
+        build: (): FamilyAnalyticsFilters => ({ min_members: 4 }),
+      },
+      {
+        id: 'created:30',
+        label: 'Created last 30 days',
+        helper: 'Families created within the last 30 days',
+        build: (): FamilyAnalyticsFilters => ({ created_from: isoThirty }),
+      },
+    ];
+
+    const cityQuickFilter = availableCities[0]
+      ? [{
+          id: `city:${availableCities[0]}`,
+          label: `City: ${availableCities[0]}`,
+          helper: `Households in ${availableCities[0]}`,
+          build: (): FamilyAnalyticsFilters => ({ city: availableCities[0] }),
+        }]
+      : [];
+
+    const stateQuickFilter = availableStates[0]
+      ? [{
+          id: `state:${availableStates[0]}`,
+          label: `State: ${availableStates[0]}`,
+          helper: `Households in ${availableStates[0]}`,
+          build: (): FamilyAnalyticsFilters => ({ state: availableStates[0] }),
+        }]
+      : [];
+
+    return [...base, ...cityQuickFilter, ...stateQuickFilter];
+  }, [availableCities, availableStates]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,7 +142,9 @@ export default function FamilyAnalyticsPage() {
     const minMembersRaw = formData.get('min_members') as string;
     const maxMembersRaw = formData.get('max_members') as string;
     const withPrimaryRaw = formData.get('with_primary_contact') as string | null;
+    const withChildrenRaw = formData.get('with_children') as string | null;
 
+    setQuickFilter(null);
     setFilters({
       min_members: minMembersRaw ? Number(minMembersRaw) : undefined,
       max_members: maxMembersRaw ? Number(maxMembersRaw) : undefined,
@@ -55,6 +156,14 @@ export default function FamilyAnalyticsPage() {
           : withPrimaryRaw === 'false'
           ? false
           : undefined,
+      with_children:
+        withChildrenRaw === ''
+          ? null
+          : withChildrenRaw === 'true'
+          ? true
+          : withChildrenRaw === 'false'
+          ? false
+          : undefined,
       city: ((formData.get('city') as string) || undefined) ?? undefined,
       state: ((formData.get('state') as string) || undefined) ?? undefined,
       created_from: (formData.get('created_from') as string) || undefined,
@@ -64,6 +173,22 @@ export default function FamilyAnalyticsPage() {
 
   const handleReset = () => {
     setFilters({});
+    setQuickFilter(null);
+  };
+
+  const handleQuickFilter = (filterId: string) => {
+    if (filterId === quickFilter) {
+      handleReset();
+      return;
+    }
+
+    const config = quickFilters.find((item) => item.id === filterId);
+    if (!config) {
+      return;
+    }
+
+    setQuickFilter(filterId);
+    setFilters(config.build());
   };
 
   const handleExport = async () => {
@@ -91,6 +216,46 @@ export default function FamilyAnalyticsPage() {
     }
   };
 
+  const activeFilters = useMemo(() => {
+    const chips: string[] = [];
+
+    if (typeof filters.min_members === 'number') {
+      chips.push(`Min members: ${filters.min_members}`);
+    }
+
+    if (typeof filters.max_members === 'number') {
+      chips.push(`Max members: ${filters.max_members}`);
+    }
+
+    if (typeof filters.with_primary_contact === 'boolean') {
+      chips.push(filters.with_primary_contact ? 'Has primary contact' : 'Missing primary contact');
+    }
+
+    if (typeof filters.with_children === 'boolean') {
+      chips.push(filters.with_children ? 'Has children' : 'No children');
+    }
+
+    if (filters.city) {
+      chips.push(`City: ${filters.city}`);
+    }
+
+    if (filters.state) {
+      chips.push(`State: ${filters.state}`);
+    }
+
+    if (filters.created_from) {
+      chips.push(`Created from ${filters.created_from}`);
+    }
+
+    if (filters.created_to) {
+      chips.push(`Created to ${filters.created_to}`);
+    }
+
+    return chips;
+  }, [filters]);
+
+  const hasFilters = activeFilters.length > 0;
+
   if (isLoading) {
     return <p className="text-slate-500">Loading family analytics…</p>;
   }
@@ -105,6 +270,58 @@ export default function FamilyAnalyticsPage() {
         <Link href="/families" className="text-sm text-emerald-600 hover:text-emerald-700">
           Back to families
         </Link>
+      </div>
+
+      <Card className="space-y-3 border border-emerald-100 bg-emerald-50/40">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-emerald-800">Quick filters</p>
+            <p className="text-xs text-emerald-700/80">Jump straight to common household segments.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {quickFilter ? (
+              <Button type="button" size="sm" variant="ghost" onClick={handleReset}>
+                Clear selection
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" variant="secondary" onClick={handleExport}>
+              Export CSV
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {quickFilters.map((item) => (
+            <Button
+              key={item.id}
+              type="button"
+              size="sm"
+              variant={quickFilter === item.id ? 'primary' : 'secondary'}
+              onClick={() => handleQuickFilter(item.id)}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
+        {quickFilter ? (
+          <p className="text-xs text-emerald-700/70">
+            {quickFilters.find((item) => item.id === quickFilter)?.helper ?? 'Quick filter active'}
+          </p>
+        ) : null}
+      </Card>
+
+      <div className="space-y-2">
+        {hasFilters ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="font-semibold uppercase tracking-wide">Active filters:</span>
+            {activeFilters.map((label) => (
+              <span key={label} className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
+                {label}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400">No filters applied. Use the quick filters or form below to refine the analytics.</p>
+        )}
       </div>
 
       <form
@@ -189,33 +406,83 @@ export default function FamilyAnalyticsPage() {
         </div>
       </form>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total households" value={data?.totals.families ?? '—'} />
-        <StatCard title="Average household size" value={data?.totals.average_household_size ?? '—'} />
-        <StatCard title="Families with children" value={data?.totals.families_with_children ?? '—'} />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard title="Total households" value={totals.families ?? '—'} />
+        <StatCard
+          title="Average household size"
+          value={totals.average_household_size ?? '—'}
+          helperText={largestHouseholdHelper}
+        />
+        <StatCard
+          title="Families with children"
+          value={totals.families_with_children ?? '—'}
+          helperText={withChildrenHelper}
+        />
+        <StatCard
+          title="Primary contact assigned"
+          value={familiesWithPrimary ?? '—'}
+          helperText={
+            primaryCoveragePct !== null ? `${primaryCoveragePct}% coverage` : undefined
+          }
+          tone={
+            familiesWithPrimary !== null && familiesWithPrimary < totalFamilies
+              ? 'info'
+              : 'default'
+          }
+        />
         <StatCard
           title="Missing primary contact"
-          value={data?.totals.families_without_primary_contact ?? '—'}
-          tone={(data?.totals.families_without_primary_contact ?? 0) > 0 ? 'warning' : 'default'}
+          value={familiesWithoutPrimary ?? '—'}
+          helperText={
+            missingPrimaryPct !== null ? `${missingPrimaryPct}% of households` : undefined
+          }
+          tone={(familiesWithoutPrimary ?? 0) > 0 ? 'warning' : 'default'}
+        />
+        <StatCard
+          title="New households this month"
+          value={newThisMonth ?? '—'}
+          helperText={newHouseholdsHelper}
+          tone={growthVsLastMonth !== null && growthVsLastMonth > 0 ? 'success' : 'default'}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="space-y-3">
-          <header className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900">Household sizes</h3>
-            <p className="text-xs text-slate-500">Distribution by household size</p>
-          </header>
-          <DistributionTable data={data?.size_distribution ?? []} labelKey="label" />
-        </Card>
-        <Card className="space-y-3">
-          <header className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900">Relationships</h3>
-            <p className="text-xs text-slate-500">Roles across families</p>
-          </header>
-          <DistributionTable data={data?.by_relationship ?? []} labelKey="relationship" />
-        </Card>
+        <AnalyticsBarChartCard
+          title="Household sizes"
+          helperText="Distribution by household size"
+          data={(data?.size_distribution ?? []).map((item) => ({
+            label: String(item.label ?? '—'),
+            value: Number(item.total ?? 0),
+          }))}
+        />
+        <AnalyticsBarChartCard
+          title="Relationships"
+          helperText="Roles represented across families"
+          data={(data?.by_relationship ?? []).map((item) => ({
+            label: String(item.relationship ?? '—'),
+            value: Number(item.total ?? 0),
+          }))}
+        />
       </div>
+
+      <Card className="space-y-4">
+        <header>
+          <h3 className="text-lg font-semibold text-slate-900">Contact coverage health</h3>
+          <p className="text-xs text-slate-500">
+            Track how many households have key contacts assigned.
+          </p>
+        </header>
+        <ContactCoverageList
+          total={totalFamilies}
+          withPrimary={familiesWithPrimary ?? undefined}
+          withoutPrimary={familiesWithoutPrimary ?? undefined}
+          withEmergency={
+            typeof totals.families_with_emergency_contact === 'number'
+              ? totals.families_with_emergency_contact
+              : undefined
+          }
+        />
+      </Card>
 
       <Card className="space-y-3">
         <header className="flex items-center justify-between">
@@ -294,35 +561,82 @@ export default function FamilyAnalyticsPage() {
   );
 }
 
-function DistributionTable({
-  data,
-  labelKey,
+function ContactCoverageList({
+  total,
+  withPrimary,
+  withoutPrimary,
+  withEmergency,
 }: {
-  data: Array<Record<string, unknown>>;
-  labelKey: string;
+  total: number;
+  withPrimary?: number;
+  withoutPrimary?: number;
+  withEmergency?: number;
 }) {
-  if (data.length === 0) {
-    return <p className="text-sm text-slate-500">No data available.</p>;
+  const items: Array<{
+    key: string;
+    label: string;
+    value?: number;
+    color: string;
+  }> = [];
+
+  if (typeof withPrimary === 'number') {
+    items.push({
+      key: 'with-primary',
+      label: 'Primary contact assigned',
+      value: withPrimary,
+      color: 'bg-emerald-500',
+    });
+  }
+
+  if (typeof withoutPrimary === 'number') {
+    items.push({
+      key: 'without-primary',
+      label: 'Missing primary contact',
+      value: withoutPrimary,
+      color: 'bg-amber-500',
+    });
+  }
+
+  if (typeof withEmergency === 'number') {
+    items.push({
+      key: 'with-emergency',
+      label: 'Emergency contact assigned',
+      value: withEmergency,
+      color: 'bg-cyan-500',
+    });
+  }
+
+  if (!items.length) {
+    return <p className="text-sm text-slate-500">No contact coverage data available.</p>;
   }
 
   return (
-    <TableContainer>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableHeaderCell>Label</TableHeaderCell>
-            <TableHeaderCell>Total</TableHeaderCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {data.map((item, index) => (
-            <TableRow key={index}>
-              <TableCell className="capitalize">{String(item[labelKey] ?? '—')}</TableCell>
-              <TableCell>{String(item.total ?? '0')}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <ul className="space-y-3">
+      {items.map((item) => {
+        const pct =
+          total > 0 && typeof item.value === 'number'
+            ? Math.round((item.value / total) * 100)
+            : null;
+
+        return (
+          <li key={item.key} className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>{item.label}</span>
+              <span className="font-medium text-slate-700">
+                {typeof item.value === 'number' ? item.value : '—'}
+                {pct !== null ? ` • ${pct}%` : ''}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full transition-all ${item.color}`}
+                style={{ width: `${pct ?? 0}%` }}
+                aria-hidden="true"
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

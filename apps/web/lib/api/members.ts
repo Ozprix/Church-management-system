@@ -97,8 +97,14 @@ export interface MembersResponse {
 export interface MemberAnalyticsResponse {
   totals: {
     members: number;
+    members_with_family?: number;
     members_without_family: number;
     stale_profiles: number;
+    conversion_rate?: number;
+    new_this_month?: number;
+    new_last_month?: number;
+    growth_vs_last_month?: number;
+    recent_visitors?: number;
   };
   by_status: Array<{ status: string; total: number }>;
   by_stage: Array<{ stage: string; total: number }>;

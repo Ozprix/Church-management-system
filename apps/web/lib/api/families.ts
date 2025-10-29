@@ -87,9 +87,15 @@ export interface FamilyAnalyticsResponse {
     average_household_size: number;
     families_with_children: number;
     families_without_primary_contact: number;
+    families_with_primary_contact?: number;
+    families_without_children?: number;
+    largest_household?: number;
+    new_this_month?: number;
+    new_last_month?: number;
+    growth_vs_last_month?: number;
   };
-  size_distribution: Array<{ label: string; total: number }>;
-  by_relationship: Array<{ relationship: string; total: number }>;
+  size_distribution: Array<{ label: string; total: number; percentage?: number }>;
+  by_relationship: Array<{ relationship: string; total: number; percentage?: number }>;
   recent_families: Array<{
     id: number;
     family_name: string;
@@ -116,6 +122,7 @@ export interface FamilyAnalyticsFilters {
   min_members?: number | null;
   max_members?: number | null;
   with_primary_contact?: boolean | null;
+  with_children?: boolean | null;
   city?: string;
   state?: string;
   created_from?: string;
@@ -197,6 +204,9 @@ export function buildFamilyAnalyticsQuery(filters: FamilyAnalyticsFilters = {}):
   }
   if (typeof filters.with_primary_contact === 'boolean') {
     params.set('with_primary_contact', String(filters.with_primary_contact));
+  }
+  if (typeof filters.with_children === 'boolean') {
+    params.set('with_children', String(filters.with_children));
   }
   if (filters.city) {
     params.set('city', filters.city);

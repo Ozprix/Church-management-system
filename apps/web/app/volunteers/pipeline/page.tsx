@@ -56,7 +56,10 @@ export default function VolunteerPipelinePage() {
     stage: stageFilter === 'all' ? undefined : stageFilter,
     per_page: 50,
   });
-  const signups = (signupResponse?.data ?? []) as VolunteerSignup[];
+  const signups = useMemo(
+    () => (signupResponse?.data ?? []) as VolunteerSignup[],
+    [signupResponse?.data]
+  );
 
   const updateSignup = useUpdateVolunteerSignup();
   const deleteSignup = useDeleteVolunteerSignup();

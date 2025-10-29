@@ -23,7 +23,8 @@ class FamilyAnalyticsService
      *     city?: string|null,
      *     state?: string|null,
      *     created_from?: ?Carbon,
-     *     created_to?: ?Carbon
+     *     created_to?: ?Carbon,
+     *     with_children?: bool|null
      * }
      */
     public function parseFilters(array $query): array
@@ -34,6 +35,11 @@ class FamilyAnalyticsService
         $withPrimary = null;
         if (array_key_exists('with_primary_contact', $query)) {
             $withPrimary = filter_var($query['with_primary_contact'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        $withChildren = null;
+        if (array_key_exists('with_children', $query)) {
+            $withChildren = filter_var($query['with_children'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
         }
 
         $createdFrom = null;
@@ -57,6 +63,7 @@ class FamilyAnalyticsService
             'state' => $state,
             'created_from' => $createdFrom,
             'created_to' => $createdTo,
+            'with_children' => $withChildren,
         ];
     }
 
@@ -77,6 +84,16 @@ class FamilyAnalyticsService
                 $query->whereHas('familyMembers', fn ($inner) => $inner->where('is_primary_contact', true));
             } else {
                 $query->whereDoesntHave('familyMembers', fn ($inner) => $inner->where('is_primary_contact', true));
+            }
+        }
+
+        if (array_key_exists('with_children', $filters) && $filters['with_children'] !== null) {
+            $relationships = ['child', 'dependent'];
+
+            if ($filters['with_children']) {
+                $query->whereHas('familyMembers', fn ($inner) => $inner->whereIn('relationship', $relationships));
+            } else {
+                $query->whereDoesntHave('familyMembers', fn ($inner) => $inner->whereIn('relationship', $relationships));
             }
         }
 
@@ -111,16 +128,35 @@ class FamilyAnalyticsService
 
         $averageSize = $membersPerFamily->avg('members_count') ?? 0.0;
 
+        $childRelationships = ['child', 'dependent'];
         $withChildren = (clone $baseQuery)
-            ->whereHas('familyMembers', fn ($inner) => $inner->where('relationship', 'child'))
+            ->whereHas('familyMembers', fn ($inner) => $inner->whereIn('relationship', $childRelationships))
             ->count();
 
         $withoutPrimaryContact = (clone $baseQuery)
             ->whereDoesntHave('familyMembers', fn ($inner) => $inner->where('is_primary_contact', true))
             ->count();
 
+        $withPrimaryContact = max($totalFamilies - $withoutPrimaryContact, 0);
+
+        $withoutChildren = max($totalFamilies - $withChildren, 0);
+
         $sizeDistribution = $this->sizeDistribution($membersPerFamily);
         $relationshipBreakdown = $this->relationshipBreakdown();
+
+        $thisMonthStart = now()->startOfMonth();
+        $previousMonthStart = $thisMonthStart->copy()->subMonth();
+        $previousMonthEnd = $thisMonthStart->copy()->subSecond();
+
+        $newThisMonth = (clone $baseQuery)->where('created_at', '>=', $thisMonthStart)->count();
+        $newLastMonth = (clone $baseQuery)
+            ->whereBetween('created_at', [$previousMonthStart, $previousMonthEnd])
+            ->count();
+        $growthVsLastMonth = $newLastMonth > 0
+            ? round((($newThisMonth - $newLastMonth) / $newLastMonth) * 100, 1)
+            : ($newThisMonth > 0 ? 100.0 : 0.0);
+
+        $largestHousehold = (int) ($membersPerFamily->max('members_count') ?? 0);
 
         $recentFamilies = $this->applyFilters(Family::query(), $filters)
             ->withCount('members')
@@ -181,6 +217,12 @@ class FamilyAnalyticsService
                 'average_household_size' => round($averageSize, 1),
                 'families_with_children' => $withChildren,
                 'families_without_primary_contact' => $withoutPrimaryContact,
+                'families_with_primary_contact' => $withPrimaryContact,
+                'families_without_children' => $withoutChildren,
+                'largest_household' => $largestHousehold,
+                'new_this_month' => $newThisMonth,
+                'new_last_month' => $newLastMonth,
+                'growth_vs_last_month' => $growthVsLastMonth,
             ],
             'size_distribution' => $sizeDistribution,
             'by_relationship' => $relationshipBreakdown,
@@ -220,8 +262,14 @@ class FamilyAnalyticsService
             }
         }
 
+        $total = array_sum($buckets);
+
         return collect($buckets)
-            ->map(fn ($total, $label) => ['label' => $label, 'total' => (int) $total])
+            ->map(fn ($bucketTotal, $label) => [
+                'label' => $label,
+                'total' => (int) $bucketTotal,
+                'percentage' => $total > 0 ? round(($bucketTotal / $total) * 100, 1) : 0.0,
+            ])
             ->values()
             ->all();
     }
@@ -240,10 +288,14 @@ class FamilyAnalyticsService
             $query->where('tenant_id', $tenantId);
         }
 
-        return $query->get()
+        $results = $query->get();
+        $total = $results->sum('total');
+
+        return $results
             ->map(fn ($row) => [
                 'relationship' => $row->relationship ?? 'unspecified',
                 'total' => (int) $row->total,
+                'percentage' => $total > 0 ? round(($row->total / $total) * 100, 1) : 0.0,
             ])
             ->values()
             ->all();

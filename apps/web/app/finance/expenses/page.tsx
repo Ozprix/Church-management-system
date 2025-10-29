@@ -43,7 +43,10 @@ export default function FinanceExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const { data, isLoading } = useExpenses({ status: statusFilter });
-  const expenses = data?.data ?? [];
+  const expenses = useMemo(
+    () => data?.data ?? [],
+    [data?.data]
+  );
 
   const createExpenseMutation = useCreateExpense();
   const updateExpenseMutation = useUpdateExpense();
