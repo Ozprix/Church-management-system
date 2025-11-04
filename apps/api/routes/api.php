@@ -22,6 +22,8 @@ use App\Http\Controllers\Api\Finance\PledgeController;
 use App\Http\Controllers\Api\Finance\RecurringDonationAttemptController;
 use App\Http\Controllers\Api\Finance\RecurringDonationScheduleController;
 use App\Http\Controllers\Api\GatheringController;
+use App\Http\Controllers\Api\GatheringRegistrationController;
+use App\Http\Controllers\Api\GatheringTicketTypeController;
 use App\Http\Controllers\Api\MemberAnalyticsController;
 use App\Http\Controllers\Api\MemberAnalyticsExportController;
 use App\Http\Controllers\Api\MemberAnalyticsReportController;
@@ -220,6 +222,18 @@ Route::prefix('v1')->group(function (): void {
         Route::get('attendance/analytics/export', AttendanceAnalyticsExportController::class)
             ->name('attendance.analytics.export');
         Route::get('gatherings/calendar', [GatheringController::class, 'calendar']);
+        Route::get('gatherings/{gathering}/ticket-types', [GatheringTicketTypeController::class, 'index']);
+        Route::post('gatherings/{gathering}/ticket-types', [GatheringTicketTypeController::class, 'store']);
+        Route::get('gatherings/{gathering}/ticket-types/{ticketType}', [GatheringTicketTypeController::class, 'show']);
+        Route::put('gatherings/{gathering}/ticket-types/{ticketType}', [GatheringTicketTypeController::class, 'update']);
+        Route::delete('gatherings/{gathering}/ticket-types/{ticketType}', [GatheringTicketTypeController::class, 'destroy']);
+
+        Route::get('gatherings/{gathering}/registrations', [GatheringRegistrationController::class, 'index']);
+        Route::post('gatherings/{gathering}/registrations', [GatheringRegistrationController::class, 'store']);
+        Route::get('gatherings/{gathering}/registrations/{registration}', [GatheringRegistrationController::class, 'show']);
+        Route::put('gatherings/{gathering}/registrations/{registration}', [GatheringRegistrationController::class, 'update']);
+        Route::delete('gatherings/{gathering}/registrations/{registration}', [GatheringRegistrationController::class, 'destroy']);
+        Route::post('gatherings/{gathering}/registrations/{registration}/check-in', [GatheringRegistrationController::class, 'checkIn']);
         Route::apiResource('attendance-analytics-reports', AttendanceAnalyticsReportController::class);
         Route::post('attendance-analytics-reports/{attendanceAnalyticsReport}/run', [AttendanceAnalyticsReportController::class, 'run']);
         Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/export', [AttendanceAnalyticsReportController::class, 'export']);

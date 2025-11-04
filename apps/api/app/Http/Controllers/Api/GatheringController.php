@@ -71,7 +71,13 @@ class GatheringController extends Controller
 
     public function show(Gathering $gathering): JsonResponse
     {
-        $gathering->load(['service', 'attendanceRecords.member']);
+        $gathering->load([
+            'service',
+            'attendanceRecords.member',
+            'ticketTypes',
+            'registrations.ticketType',
+            'registrations.member',
+        ]);
 
         return GatheringResource::make($gathering)->response();
     }

@@ -127,7 +127,7 @@ export default function MemberAnalyticsPage() {
   const statusOptions = data?.filters?.statuses ?? [];
   const stageOptions = data?.filters?.stages ?? [];
   const joinedRange = data?.filters?.joined_range ?? {};
-  const totals = data?.totals ?? {};
+  const totals = data?.totals;
   const activeFilters = [
     filters.status ? `Status: ${filters.status}` : null,
     filters.stage ? `Stage: ${filters.stage}` : null,
@@ -277,47 +277,47 @@ export default function MemberAnalyticsPage() {
       </form>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard title="Total members" value={formatNumber(totals.members)} helperText="Across current filters" />
+        <StatCard title="Total members" value={formatNumber(totals?.members)} helperText="Across current filters" />
         <StatCard
           title="Conversion rate"
-          value={formatPercent(totals.conversion_rate)}
+          value={formatPercent(totals?.conversion_rate)}
           helperText="Members who are beyond visitor status"
-          tone={(totals.conversion_rate ?? 0) < 30 ? 'warning' : 'default'}
+          tone={(totals?.conversion_rate ?? 0) < 30 ? 'warning' : 'default'}
         />
         <StatCard
           title="New this month"
-          value={formatNumber(totals.new_this_month)}
-          helperText={`Last month ${formatNumber(totals.new_last_month)}`}
+          value={formatNumber(totals?.new_this_month)}
+          helperText={`Last month ${formatNumber(totals?.new_last_month)}`}
         />
         <StatCard
           title="Growth vs last month"
-          value={formatGrowth(totals.growth_vs_last_month)}
+          value={formatGrowth(totals?.growth_vs_last_month)}
           helperText="Based on new members month over month"
-          tone={typeof totals.growth_vs_last_month === 'number' && totals.growth_vs_last_month < 0 ? 'warning' : 'default'}
+          tone={typeof totals?.growth_vs_last_month === 'number' && totals.growth_vs_last_month < 0 ? 'warning' : 'default'}
         />
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
           title="With family"
-          value={formatNumber(totals.members_with_family)}
+          value={formatNumber(totals?.members_with_family)}
           helperText="Members assigned to a household"
         />
         <StatCard
           title="Without family"
-          value={formatNumber(totals.members_without_family)}
+          value={formatNumber(totals?.members_without_family)}
           helperText="Members not yet linked to a household"
-          tone={(totals.members_without_family ?? 0) > 0 ? 'warning' : 'default'}
+          tone={(totals?.members_without_family ?? 0) > 0 ? 'warning' : 'default'}
         />
         <StatCard
           title="Profiles to refresh"
-          value={formatNumber(totals.stale_profiles)}
+          value={formatNumber(totals?.stale_profiles)}
           helperText="Haven’t been updated in 6+ months"
-          tone={(totals.stale_profiles ?? 0) > 0 ? 'warning' : 'default'}
+          tone={(totals?.stale_profiles ?? 0) > 0 ? 'warning' : 'default'}
         />
         <StatCard
           title="Recent visitors"
-          value={formatNumber(totals.recent_visitors)}
+          value={formatNumber(totals?.recent_visitors)}
           helperText="Visitors added in the past 4 weeks"
         />
       </div>

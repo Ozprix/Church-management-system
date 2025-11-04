@@ -477,7 +477,7 @@ export default function VisitorsPage() {
             title="Conversion rate"
             value={typeof stats.conversion_rate === 'number' ? `${stats.conversion_rate}%` : '—'}
             helperText="Visitors converted overall"
-            tone={typeof stats.conversion_rate === 'number' && stats.conversion_rate >= 50 ? 'success' : 'info'}
+            tone={typeof stats.conversion_rate === 'number' && stats.conversion_rate >= 50 ? 'success' : 'default'}
           />
         </section>
       )}

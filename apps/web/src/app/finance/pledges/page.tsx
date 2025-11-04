@@ -98,15 +98,19 @@ export default function FinancePledgesPage(): React.ReactElement {
     enabled: !!user,
   });
 
-  const pledges = pledgesQuery.data?.data ?? [];
+  const pledges = pledgesQuery.data?.data;
 
   useEffect(() => {
-    if (!selectedPledgeId && pledges.length > 0) {
+    if (!selectedPledgeId && pledges && pledges.length > 0) {
       setSelectedPledgeId(pledges[0].id);
     }
   }, [pledges, selectedPledgeId]);
 
   const selectedPledge = useMemo(() => {
+    if (!pledges) {
+      return null;
+    }
+
     const pledge = pledges.find((item) => item.id === selectedPledgeId);
     if (pledge && typeof window !== "undefined") {
       window.localStorage.setItem("finance:selected-pledge-id", String(pledge.id));
@@ -125,9 +129,14 @@ export default function FinancePledgesPage(): React.ReactElement {
   }, [selectedPledge]);
 
   const reminderHistoryQuery = useInfiniteQuery<PaginatedResponse<NotificationSummary>>({
-    queryKey: ["pledge-reminders", selectedPledgeId, historyFilters],
+    queryKey: ["pledge-reminders", selectedPledgeId, historyFilters, historyPreset],
     queryFn: async ({ pageParam = 1, queryKey }) => {
-      const [, pledgeId, filters] = queryKey as [string, number | null, HistoryFilters];
+      const [, pledgeId, filters, preset] = queryKey as [
+        string,
+        number | null,
+        HistoryFilters,
+        string,
+      ];
       if (!pledgeId) {
         return {
           data: [],
@@ -145,10 +154,10 @@ export default function FinancePledgesPage(): React.ReactElement {
       if (filters.status) {
         params.set("status", filters.status);
       }
-      if (historyPreset === "last7") {
+      if (preset === "last7") {
         params.set("since", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
       }
-      if (historyPreset === "failures") {
+      if (preset === "failures") {
         params.set("status", "failed");
       }
 
@@ -299,7 +308,7 @@ export default function FinancePledgesPage(): React.ReactElement {
       )}
 
       <PledgeList
-        pledges={pledges}
+        pledges={pledges ?? []}
         selectedPledgeId={selectedPledgeId}
         onSelect={setSelectedPledgeId}
         isLoading={pledgesQuery.isLoading}
@@ -462,6 +471,43 @@ export default function FinancePledgesPage(): React.ReactElement {
                   </select>
                 </label>
               </form>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setHistoryPreset((prev) => (prev === "last7" ? "" : "last7"))
+                  }
+                  className={`rounded border px-3 py-1 font-medium ${
+                    historyPreset === "last7"
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  Last 7 days
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setHistoryPreset((prev) => (prev === "failures" ? "" : "failures"))
+                  }
+                  className={`rounded border px-3 py-1 font-medium ${
+                    historyPreset === "failures"
+                      ? "border-red-600 bg-red-600 text-white"
+                      : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  Failures only
+                </button>
+                {historyPreset !== "" && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPreset("")}
+                    className="rounded border border-slate-300 px-3 py-1 font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    Clear presets
+                  </button>
+                )}
+              </div>
 
               <ReminderHistory
                 entries={reminderEntries}

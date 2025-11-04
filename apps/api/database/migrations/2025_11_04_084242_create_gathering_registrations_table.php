@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(Tenant::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(Gathering::class)->constrained()->cascadeOnDelete();
-            $table->foreignIdFor(GatheringTicketType::class)->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('ticket_type_id')->nullable()->constrained('gathering_ticket_types')->nullOnDelete();
             $table->foreignIdFor(Member::class)->nullable()->constrained()->nullOnDelete();
             $table->string('status')->default('pending');
             $table->unsignedInteger('quantity')->default(1);

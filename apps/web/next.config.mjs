@@ -8,7 +8,7 @@ const withPWA = withPWAInit({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: isDev,
+  disable: isDev || globalThis?.process?.env?.NEXT_DISABLE_PWA === 'true',
   runtimeCaching,
   buildExcludes: [/middleware-manifest\.json$/],
 });

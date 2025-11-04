@@ -12,6 +12,18 @@ class GatheringRegistration extends Model
     use HasFactory;
     use TenantScoped;
 
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_CHECKED_IN = 'checked_in';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_CANCELLED,
+        self::STATUS_CHECKED_IN,
+    ];
+
     protected $fillable = [
         'tenant_id',
         'gathering_id',

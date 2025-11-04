@@ -41,7 +41,7 @@ export function ExpenseTable({
   }
 
   return (
-    <Card padding="none">
+    <Card padding="sm" className="p-0">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">

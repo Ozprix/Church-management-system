@@ -37,16 +37,15 @@ export default function FamilyAnalyticsPage() {
   const availableCities = useMemo(() => data?.filters?.cities ?? [], [data?.filters?.cities]);
   const availableStates = useMemo(() => data?.filters?.states ?? [], [data?.filters?.states]);
   const createdRange = data?.filters?.created_range ?? {};
-  const totals = data?.totals ?? {};
-  const totalFamilies = typeof totals.families === 'number' ? totals.families : 0;
+  const totals = data?.totals;
+  const totalFamiliesRaw = totals?.families;
+  const totalFamilies = typeof totalFamiliesRaw === 'number' ? totalFamiliesRaw : 0;
+  const familiesWithPrimaryRaw = totals?.families_with_primary_contact;
   const familiesWithPrimary =
-    typeof totals.families_with_primary_contact === 'number'
-      ? totals.families_with_primary_contact
-      : null;
+    typeof familiesWithPrimaryRaw === 'number' ? familiesWithPrimaryRaw : null;
+  const familiesWithoutPrimaryRaw = totals?.families_without_primary_contact;
   const familiesWithoutPrimary =
-    typeof totals.families_without_primary_contact === 'number'
-      ? totals.families_without_primary_contact
-      : null;
+    typeof familiesWithoutPrimaryRaw === 'number' ? familiesWithoutPrimaryRaw : null;
   const primaryCoveragePct =
     familiesWithPrimary !== null && totalFamilies > 0
       ? Math.round((familiesWithPrimary / totalFamilies) * 100)
@@ -55,20 +54,29 @@ export default function FamilyAnalyticsPage() {
     familiesWithoutPrimary !== null && totalFamilies > 0
       ? Math.round((familiesWithoutPrimary / totalFamilies) * 100)
       : null;
-  const newThisMonth = typeof totals.new_this_month === 'number' ? totals.new_this_month : null;
-  const newLastMonth = typeof totals.new_last_month === 'number' ? totals.new_last_month : null;
+  const newThisMonthRaw = totals?.new_this_month;
+  const newThisMonth = typeof newThisMonthRaw === 'number' ? newThisMonthRaw : null;
+  const newLastMonthRaw = totals?.new_last_month;
+  const newLastMonth = typeof newLastMonthRaw === 'number' ? newLastMonthRaw : null;
+  const growthVsLastMonthRaw = totals?.growth_vs_last_month;
   const growthVsLastMonth =
-    typeof totals.growth_vs_last_month === 'number' ? totals.growth_vs_last_month : null;
+    typeof growthVsLastMonthRaw === 'number' ? growthVsLastMonthRaw : null;
+  const largestHouseholdRaw = totals?.largest_household;
   const largestHouseholdHelper =
-    typeof totals.largest_household === 'number' && totals.largest_household > 0
-      ? `Largest household: ${totals.largest_household}`
+    typeof largestHouseholdRaw === 'number' && largestHouseholdRaw > 0
+      ? `Largest household: ${largestHouseholdRaw}`
       : undefined;
+  const withoutChildrenRaw = totals?.families_without_children;
   const withoutChildren =
-    typeof totals.families_without_children === 'number'
-      ? totals.families_without_children
-      : null;
+    typeof withoutChildrenRaw === 'number' ? withoutChildrenRaw : null;
   const withChildrenHelper =
     withoutChildren !== null ? `Without children: ${withoutChildren}` : undefined;
+  const totalsRecord = totals as Record<string, unknown> | undefined;
+  const familiesWithEmergencyRawValue = totalsRecord?.['families_with_emergency_contact'];
+  const familiesWithEmergencyRaw =
+    typeof familiesWithEmergencyRawValue === 'number'
+      ? (familiesWithEmergencyRawValue as number)
+      : null;
   const growthDescriptor =
     growthVsLastMonth !== null ? `${growthVsLastMonth > 0 ? '+' : ''}${growthVsLastMonth}% vs last month` : null;
   const lastMonthDescriptor =
@@ -407,15 +415,15 @@ export default function FamilyAnalyticsPage() {
       </form>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard title="Total households" value={totals.families ?? '—'} />
+        <StatCard title="Total households" value={totals?.families ?? '—'} />
         <StatCard
           title="Average household size"
-          value={totals.average_household_size ?? '—'}
+          value={totals?.average_household_size ?? '—'}
           helperText={largestHouseholdHelper}
         />
         <StatCard
           title="Families with children"
-          value={totals.families_with_children ?? '—'}
+          value={totals?.families_with_children ?? '—'}
           helperText={withChildrenHelper}
         />
         <StatCard
@@ -426,8 +434,8 @@ export default function FamilyAnalyticsPage() {
           }
           tone={
             familiesWithPrimary !== null && familiesWithPrimary < totalFamilies
-              ? 'info'
-              : 'default'
+              ? 'warning'
+              : 'success'
           }
         />
         <StatCard
@@ -477,9 +485,7 @@ export default function FamilyAnalyticsPage() {
           withPrimary={familiesWithPrimary ?? undefined}
           withoutPrimary={familiesWithoutPrimary ?? undefined}
           withEmergency={
-            typeof totals.families_with_emergency_contact === 'number'
-              ? totals.families_with_emergency_contact
-              : undefined
+            typeof familiesWithEmergencyRaw === 'number' ? familiesWithEmergencyRaw : undefined
           }
         />
       </Card>

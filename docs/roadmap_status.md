@@ -37,8 +37,8 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Event calendar & resource scheduling | ⏳ | Basic gathering endpoints live; conflict resolution, UI calendar, and notifications not started. |
-| Registrations & ticketing | ⏳ | No backend/frontend implementation yet. |
+| Event calendar & resource scheduling | 🔄 | API now exposes calendar ranged fetch + conflict detection; next up is the calendar UI and drag/drop editing. |
+| Registrations & ticketing | 🔄 | Ticket types/registrations APIs with capacity & check-in implemented; build PWA flows to surface them. |
 | Notification rules engine | 🔄 | Notification rule service exists; needs UI builder, condition testing, and delivery queue integration. |
 | Messaging integrations (SMS/Email) | ⏳ | Service stubs prepared; awaiting provider configuration and retry logic. |
 | Prayer request portal | ⏳ | Not yet implemented. |

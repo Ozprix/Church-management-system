@@ -71,7 +71,7 @@ export function ExpenseForm({ defaultValues, submitting, onSubmit, onCancel }: E
     event.preventDefault();
     const normalizedItems = values.line_items.map((item) => ({
       description: item.description,
-      amount: item.amount === '' ? '' : Number(item.amount),
+      amount: item.amount === '' ? '' : String(item.amount),
       category: item.category || undefined,
     }));
 

@@ -323,7 +323,7 @@ export default function FamiliesPage() {
   );
 }
 
-function formatDate(record: { created_at?: string }): string {
+function formatDate(record: { created_at?: string | null }): string {
   if (!record.created_at) {
     return '—';
   }
@@ -416,7 +416,7 @@ function TrendChart({ data }: { data: Array<{ label: string; total: number }> })
   );
 }
 
-function formatAnniversary(record: { anniversary_on?: string; days_until?: number }): string {
+function formatAnniversary(record: { anniversary_on?: string | null; days_until?: number | null }): string {
   if (!record.anniversary_on) {
     return '—';
   }

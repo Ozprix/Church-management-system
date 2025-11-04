@@ -100,6 +100,18 @@ export default function MembersPage() {
           >
             Pledge reminders
           </a>
+          <a
+            href="/events/calendar"
+            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+          >
+            Events calendar
+          </a>
+          <a
+            href="/notifications/rules"
+            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+          >
+            Notification rules
+          </a>
         </div>
       </header>
 
