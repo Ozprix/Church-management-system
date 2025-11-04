@@ -27,9 +27,9 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Donation intake & Stripe webhooks | 🔄 | Donation service and webhook controller exist; receipt PDFs now generate/email on success. Pending: live gateway integration tests. |
-| Pledge management & reminders | ⏳ | Models and services scaffolded, reminder scheduling logic outstanding. |
-| Ledger & journal subsystem | ⏳ | Ledger model exists; double-entry enforcement and reconciliation tooling still required. |
+| Donation intake & Stripe webhooks | ✅ | Stripe webhooks covered; live Stripe integration test now runs when credentials are present, confirming payment intents end-to-end. |
+| Pledge management & reminders | 🔄 | Reminder scheduler/queue tested end-to-end (tenant + limit options, auto-disable on fulfilment); pledge reminder UI lives under Finance > Pledge reminders and is gated by `finance.manage_pledges`; remaining work focuses on campaign UI & reminder UX polish. |
+| Ledger & journal subsystem | ✅ | General ledger enforcement now posts balanced entries for donations and reimbursements; monthly trial balance tooling verifies double-entry integrity per tenant. |
 | Expense workflow UI | ✅ | Expenses API with submission/approval/reimbursement states plus new finance/expenses PWA section. |
 | Financial reports & statements | ✅ | Tenant-branded PDF exports (statements, balance sheet, donor letters) available under Finance &gt; Branded PDFs. |
 

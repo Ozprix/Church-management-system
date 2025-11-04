@@ -16,6 +16,7 @@ class FinancialLedgerEntry extends Model
         'tenant_id',
         'donation_id',
         'pledge_id',
+        'expense_id',
         'financial_account_id',
         'entry_type',
         'account',
@@ -50,5 +51,10 @@ class FinancialLedgerEntry extends Model
     public function pledge(): BelongsTo
     {
         return $this->belongsTo(Pledge::class);
+    }
+
+    public function expense(): BelongsTo
+    {
+        return $this->belongsTo(Expense::class);
     }
 }

@@ -6,6 +6,8 @@ namespace Tests\Feature\Finance;
 
 use App\Models\Fund;
 use App\Models\Member;
+use App\Models\MemberContact;
+use App\Models\Notification;
 use App\Models\Pledge;
 use App\Models\Tenant;
 use App\Support\PledgeReminderCadence;
@@ -209,5 +211,107 @@ class PledgeApiTest extends TestCase
         $this->assertFalse($pledge->reminder_enabled);
         $this->assertNull($pledge->reminder_cadence);
         $this->assertNull($pledge->next_reminder_at);
+    }
+
+    public function test_it_returns_reminder_history_for_pledge(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $member = Member::factory()->create(['tenant_id' => $tenant->id]);
+        $fund = Fund::factory()->create(['tenant_id' => $tenant->id]);
+
+        $this->actingAsTenantAdmin($tenant);
+
+        $pledge = Pledge::factory()->create([
+            'tenant_id' => $tenant->id,
+            'member_id' => $member->id,
+            'fund_id' => $fund->id,
+            'status' => 'active',
+        ]);
+
+        MemberContact::factory()->forMember($member)->state([
+            'type' => 'email',
+            'value' => 'member@example.test',
+            'is_primary' => true,
+        ])->create();
+
+        Notification::factory()
+            ->forMember($member)
+            ->sent()
+            ->state([
+                'tenant_id' => $tenant->id,
+                'payload' => [
+                    'pledge_id' => $pledge->id,
+                    'reminder_sent_at' => now()->toIso8601String(),
+                ],
+            ])
+            ->create();
+
+        Notification::factory()
+            ->state([
+                'tenant_id' => $tenant->id,
+                'payload' => ['pledge_id' => 9999],
+            ])
+            ->create();
+
+        $response = $this
+            ->withHeader('X-Tenant-ID', $tenant->uuid)
+            ->getJson("/api/v1/pledges/{$pledge->id}/reminders");
+
+        $response->assertOk();
+
+        $this->assertCount(1, $response->json('data'));
+        $this->assertSame('sent', $response->json('data.0.status'));
+        $this->assertSame($pledge->id, $response->json('data.0.payload.pledge_id'));
+    }
+
+    public function test_reminder_history_filters_by_channel_and_search(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $member = Member::factory()->create(['tenant_id' => $tenant->id]);
+        $fund = Fund::factory()->create(['tenant_id' => $tenant->id]);
+
+        $this->actingAsTenantAdmin($tenant);
+
+        $pledge = Pledge::factory()->create([
+            'tenant_id' => $tenant->id,
+            'member_id' => $member->id,
+            'fund_id' => $fund->id,
+            'status' => 'active',
+        ]);
+
+        MemberContact::factory()->forMember($member)->state([
+            'type' => 'email',
+            'value' => 'member@example.test',
+            'is_primary' => true,
+        ])->create();
+
+        Notification::factory()
+            ->forMember($member)
+            ->sent()
+            ->state([
+                'tenant_id' => $tenant->id,
+                'channel' => 'email',
+                'subject' => 'Monthly pledge reminder',
+                'payload' => ['pledge_id' => $pledge->id],
+            ])
+            ->create();
+
+        Notification::factory()
+            ->state([
+                'tenant_id' => $tenant->id,
+                'channel' => 'sms',
+                'subject' => 'Another pledge reminder',
+                'payload' => ['pledge_id' => $pledge->id],
+            ])
+            ->create();
+
+        $response = $this
+            ->withHeader('X-Tenant-ID', $tenant->uuid)
+            ->getJson("/api/v1/pledges/{$pledge->id}/reminders?channel=email&q=Monthly");
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json('data'));
+        $this->assertSame('email', $response->json('data.0.channel'));
+        $this->assertSame('Monthly pledge reminder', $response->json('data.0.subject'));
     }
 }

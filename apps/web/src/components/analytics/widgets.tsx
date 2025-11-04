@@ -11,6 +11,13 @@ import {
   AreaChart,
   Area,
 } from "recharts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export type AnalyticsDatum = {
   label: string;
@@ -25,11 +32,17 @@ interface StatCardProps {
 
 export function AnalyticsStatCard({ title, value, description }: StatCardProps) {
   return (
-    <div className="rounded border border-slate-200 p-4">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-1 text-3xl font-semibold text-slate-900">{value}</p>
-      {description && <p className="mt-1 text-xs text-slate-500">{description}</p>}
-    </div>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardDescription>{title}</CardDescription>
+        <CardTitle className="mt-1 text-3xl font-semibold text-slate-900">{value}</CardTitle>
+      </CardHeader>
+      {description && (
+        <CardContent className="pt-0">
+          <p className="text-xs text-slate-500">{description}</p>
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
@@ -51,10 +64,17 @@ export function AnalyticsBarChartCard({
   valueFormatter,
 }: BarChartCardProps) {
   return (
-    <section className="rounded border border-slate-200 p-4">
-      <h3 className="text-base font-semibold text-slate-800">{title}</h3>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold text-slate-800">{title}</CardTitle>
+        {data.length === 0 && (
+          <CardDescription className="text-xs text-slate-500">
+            No data available for the selected filters.
+          </CardDescription>
+        )}
+      </CardHeader>
       {data.length ? (
-        <div className="mt-4" style={{ height }}>
+        <CardContent className="pt-0" style={{ height }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -83,11 +103,9 @@ export function AnalyticsBarChartCard({
               />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      ) : (
-        <p className="mt-4 text-sm text-slate-500">No data available.</p>
-      )}
-    </section>
+        </CardContent>
+      ) : null}
+    </Card>
   );
 }
 
@@ -109,10 +127,17 @@ export function AnalyticsAreaChartCard({
   valueFormatter,
 }: AreaChartCardProps) {
   return (
-    <section className="rounded border border-slate-200 p-4">
-      <h3 className="text-base font-semibold text-slate-800">{title}</h3>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold text-slate-800">{title}</CardTitle>
+        {data.length === 0 && (
+          <CardDescription className="text-xs text-slate-500">
+            No trend data available for the selected filters.
+          </CardDescription>
+        )}
+      </CardHeader>
       {data.length ? (
-        <div className="mt-4" style={{ height }}>
+        <CardContent className="pt-0" style={{ height }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -140,10 +165,8 @@ export function AnalyticsAreaChartCard({
               />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
-      ) : (
-        <p className="mt-4 text-sm text-slate-500">No trend data available.</p>
-      )}
-    </section>
+        </CardContent>
+      ) : null}
+    </Card>
   );
 }

@@ -78,6 +78,11 @@ class Expense extends Model
         return $this->belongsTo(User::class, 'reimbursed_by');
     }
 
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(FinancialLedgerEntry::class);
+    }
+
     public function scopeStatus($query, string $status)
     {
         return $query->where('status', $status);

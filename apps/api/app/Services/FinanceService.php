@@ -4,13 +4,13 @@ namespace App\Services;
 
 use App\Models\Donation;
 use App\Models\DonationItem;
-use App\Models\FinancialLedgerEntry;
 use App\Models\Fund;
 use App\Models\Member;
 use App\Models\PaymentMethod;
 use App\Models\Pledge;
 use App\Services\Finance\ChartOfAccountsService;
 use App\Services\Finance\DonationReceiptService;
+use App\Services\Finance\LedgerService;
 use App\Support\PledgeReminderCadence;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -23,6 +23,7 @@ class FinanceService
     public function __construct(
         private readonly DonationReceiptService $donationReceiptService,
         private readonly ChartOfAccountsService $chartOfAccountsService,
+        private readonly LedgerService $ledgerService,
     )
     {
     }
@@ -336,17 +337,28 @@ class FinanceService
         $donation->ledgerEntries()->delete();
 
         if ($donation->status === 'succeeded') {
-            $this->storeLedgerEntries($donation, $this->donationLedgerEntries($donation, 'donation'));
-
+            $this->ledgerService->post(
+                $donation->tenant_id,
+                $this->donationLedgerEntries($donation, 'donation'),
+                ['donation_id' => $donation->id]
+            );
             return;
         }
 
         if ($donation->status === 'refunded') {
             if ($previousStatus === 'succeeded' || $existingEntries) {
-                $this->storeLedgerEntries($donation, $this->donationLedgerEntries($donation, 'donation'));
+                $this->ledgerService->post(
+                    $donation->tenant_id,
+                    $this->donationLedgerEntries($donation, 'donation'),
+                    ['donation_id' => $donation->id]
+                );
             }
 
-            $this->storeLedgerEntries($donation, $this->refundLedgerEntries($donation));
+            $this->ledgerService->post(
+                $donation->tenant_id,
+                $this->refundLedgerEntries($donation),
+                ['donation_id' => $donation->id]
+            );
         }
     }
 
@@ -370,75 +382,6 @@ class FinanceService
             $this->buildLedgerEntryPayload($donation, 'debit', self::ACCOUNT_DONATIONS_INCOME, 'refund'),
             $this->buildLedgerEntryPayload($donation, 'credit', self::ACCOUNT_CASH_UNDEPOSITED, 'refund'),
         ];
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $entries
-     */
-    protected function storeLedgerEntries(Donation $donation, array $entries): void
-    {
-        if (empty($entries)) {
-            return;
-        }
-
-        $resolved = [];
-        $totalDebits = 0.0;
-        $totalCredits = 0.0;
-
-        foreach ($entries as $entry) {
-            $entryType = $entry['entry_type'] ?? null;
-            $amount = (float) ($entry['amount'] ?? 0);
-            $currency = $entry['currency'] ?? ($donation->currency ?? 'USD');
-            $accountCode = $entry['account_code'] ?? null;
-
-            if (! in_array($entryType, ['debit', 'credit'], true)) {
-                throw new \InvalidArgumentException('Ledger entry type must be debit or credit.');
-            }
-
-            if ($amount <= 0) {
-                throw new \InvalidArgumentException('Ledger entry amount must be greater than zero.');
-            }
-
-            if (! $accountCode) {
-                throw new \InvalidArgumentException('Ledger entry requires an account code.');
-            }
-
-            if ($entryType === 'debit') {
-                $totalDebits += $amount;
-            } else {
-                $totalCredits += $amount;
-            }
-
-            $account = $this->chartOfAccountsService->resolveAccount($donation->tenant_id, $accountCode);
-
-            $resolved[] = [
-                'tenant_id' => $donation->tenant_id,
-                'donation_id' => $donation->id,
-                'financial_account_id' => $account->id,
-                'entry_type' => $entryType,
-                'account' => $account->name,
-                'amount' => $amount,
-                'currency' => $currency,
-                'occurred_at' => $entry['occurred_at'] ?? ($donation->received_at ?? Carbon::now()),
-                'description' => $entry['description'] ?? $donation->notes,
-                'metadata' => $entry['metadata'] ?? ['kind' => $entry['kind'] ?? null],
-            ];
-        }
-
-        if (round($totalDebits - $totalCredits, 2) !== 0.0) {
-            throw new \RuntimeException('Ledger entries must balance before posting.');
-        }
-
-        foreach ($resolved as $payload) {
-            if (isset($payload['metadata']) && is_array($payload['metadata']) && empty($payload['metadata']['kind'])) {
-                unset($payload['metadata']['kind']);
-                if (empty($payload['metadata'])) {
-                    $payload['metadata'] = null;
-                }
-            }
-
-            FinancialLedgerEntry::create($payload);
-        }
     }
 
     /**

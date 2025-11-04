@@ -193,6 +193,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('volunteer/analytics/summary', [VolunteerAnalyticsController::class, 'summary']);
 
         Route::apiResource('funds', FundController::class);
+        Route::get('pledges/{pledge}/reminders', [PledgeController::class, 'reminders']);
         Route::apiResource('pledges', PledgeController::class);
         Route::apiResource('donations', DonationController::class);
         Route::apiResource('expenses', ExpenseController::class);

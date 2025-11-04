@@ -74,6 +74,62 @@ class PledgeReminderSchedulerTest extends TestCase
         }
     }
 
+    public function test_command_can_limit_to_specific_tenant_and_job_count(): void
+    {
+        config(['queue.default' => 'database']);
+        $originalQueue = app('queue');
+        Queue::fake();
+
+        try {
+            $tenantA = Tenant::factory()->create();
+            $tenantB = Tenant::factory()->create();
+            $memberA = Member::factory()->create(['tenant_id' => $tenantA->id]);
+            $memberB = Member::factory()->create(['tenant_id' => $tenantB->id]);
+            $fundA = Fund::factory()->create(['tenant_id' => $tenantA->id]);
+            $fundB = Fund::factory()->create(['tenant_id' => $tenantB->id]);
+
+            Pledge::factory()->create([
+                'tenant_id' => $tenantA->id,
+                'member_id' => $memberA->id,
+                'fund_id' => $fundA->id,
+                'status' => 'active',
+                'reminder_enabled' => true,
+                'reminder_cadence' => PledgeReminderCadence::DAILY,
+                'next_reminder_at' => Carbon::now()->subDay(),
+            ]);
+
+            $dueForB = Pledge::factory()->create([
+                'tenant_id' => $tenantB->id,
+                'member_id' => $memberB->id,
+                'fund_id' => $fundB->id,
+                'status' => 'active',
+                'reminder_enabled' => true,
+                'reminder_cadence' => PledgeReminderCadence::DAILY,
+                'next_reminder_at' => Carbon::now()->subDay(),
+            ]);
+
+            Pledge::factory()->count(2)->create([
+                'tenant_id' => $tenantB->id,
+                'member_id' => $memberB->id,
+                'fund_id' => $fundB->id,
+                'status' => 'active',
+                'reminder_enabled' => true,
+                'reminder_cadence' => PledgeReminderCadence::DAILY,
+                'next_reminder_at' => Carbon::now()->subDay(),
+            ]);
+
+            Artisan::call('pledges:send-reminders', ['--tenant' => $tenantB->id, '--limit' => 1]);
+
+            Queue::assertPushed(SendPledgeReminderJob::class, 1);
+            Queue::assertPushed(SendPledgeReminderJob::class, function (SendPledgeReminderJob $job) use ($dueForB) {
+                return $job->getPledgeId() === $dueForB->id;
+            });
+        } finally {
+            config(['queue.default' => 'sync']);
+            Queue::swap($originalQueue);
+        }
+    }
+
     public function test_job_queues_notifications_and_advances_schedule(): void
     {
         $originalQueue = app('queue');
@@ -122,5 +178,33 @@ class PledgeReminderSchedulerTest extends TestCase
         } finally {
             Queue::swap($originalQueue);
         }
+    }
+
+    public function test_job_turns_off_reminders_when_pledge_fulfilled(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $member = Member::factory()->create(['tenant_id' => $tenant->id]);
+        $fund = Fund::factory()->create(['tenant_id' => $tenant->id]);
+
+        $pledge = Pledge::factory()->create([
+            'tenant_id' => $tenant->id,
+            'member_id' => $member->id,
+            'fund_id' => $fund->id,
+            'amount' => 100,
+            'fulfilled_amount' => 100,
+            'status' => 'active',
+            'reminder_enabled' => true,
+            'reminder_cadence' => PledgeReminderCadence::MONTHLY,
+            'next_reminder_at' => Carbon::now()->subDay(),
+        ]);
+
+        $job = new SendPledgeReminderJob($pledge->id);
+        $job->handle(app(NotificationService::class));
+
+        $pledge->refresh();
+
+        $this->assertFalse($pledge->reminder_enabled);
+        $this->assertNull($pledge->reminder_cadence);
+        $this->assertNull($pledge->next_reminder_at);
     }
 }

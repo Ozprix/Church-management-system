@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Expense;
 use App\Models\ExpenseLineItem;
 use App\Models\User;
+use App\Services\Finance\LedgerService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ class ExpenseService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
+        private readonly LedgerService $ledgerService,
     ) {
     }
 
@@ -168,6 +170,29 @@ class ExpenseService
             'reimbursed_at' => Carbon::now(),
             'reimbursed_by' => $actor->id,
         ])->save();
+
+        $this->ledgerService->post($expense->tenant_id, [
+            [
+                'entry_type' => 'debit',
+                'account_code' => 'expense.ministry.general',
+                'amount' => (float) $expense->total_amount,
+                'currency' => $expense->currency ?? 'USD',
+                'occurred_at' => $expense->reimbursed_at ?? Carbon::now(),
+                'description' => sprintf('Expense reimbursement: %s', $expense->title),
+                'kind' => 'expense',
+            ],
+            [
+                'entry_type' => 'credit',
+                'account_code' => 'assets.cash.checking',
+                'amount' => (float) $expense->total_amount,
+                'currency' => $expense->currency ?? 'USD',
+                'occurred_at' => $expense->reimbursed_at ?? Carbon::now(),
+                'description' => sprintf('Expense reimbursement: %s', $expense->title),
+                'kind' => 'expense',
+            ],
+        ], [
+            'expense_id' => $expense->id,
+        ]);
 
         $this->notifySubmitter($expense, sprintf('Expense "%s" reimbursed', $expense->title), sprintf(
             'Your reimbursement for %s %s has been processed.',

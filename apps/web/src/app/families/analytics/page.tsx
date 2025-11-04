@@ -10,6 +10,13 @@ import {
   AnalyticsBarChartCard,
   AnalyticsStatCard,
 } from "@/components/analytics/widgets";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { format, parseISO } from "date-fns";
 
 type Filters = {
@@ -101,13 +108,18 @@ export default function FamilyAnalyticsPage() {
         </p>
       </header>
 
-      <section className="rounded border border-slate-200 p-4">
-        <form className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <label className="text-sm font-medium text-slate-700">
-            Min members
-            <input
-              type="number"
-              min={0}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Filters</CardTitle>
+          <CardDescription>Filter families by size, contact status, and location.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <form className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm font-medium text-slate-700">
+              Min members
+              <input
+                type="number"
+                min={0}
               value={filters.minMembers}
               onChange={(event) =>
                 setFilters((prev) => ({ ...prev, minMembers: event.target.value }))
@@ -191,31 +203,32 @@ export default function FamilyAnalyticsPage() {
             />
           </label>
         </form>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setFilters({ ...initialFilters })}
-            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            Clear filters
-          </button>
-          <button
-            type="button"
-            onClick={() => analyticsQuery.refetch()}
-            disabled={isFetching}
-            className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-          >
-            {isFetching ? "Refreshing…" : "Refresh"}
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            Export CSV
-          </button>
-        </div>
-      </section>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFilters({ ...initialFilters })}
+              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              Clear filters
+            </button>
+            <button
+              type="button"
+              onClick={() => analyticsQuery.refetch()}
+              disabled={isFetching}
+              className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {isFetching ? "Refreshing…" : "Refresh"}
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              Export CSV
+            </button>
+          </div>
+        </CardContent>
+      </Card>
 
       {errorMessage && (
         <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">

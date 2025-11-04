@@ -35,13 +35,14 @@ class DatabaseSeeder extends Seeder
 
         $demoToken = config('app.demo_api_token');
 
-        $user = User::query()->firstOrCreate(['email' => 'admin@example.com']);
-
-        $user->forceFill([
-            'tenant_id' => $tenant->id,
-            'name' => 'Example Admin',
-            'password' => bcrypt('password'),
-        ])->save();
+        $user = User::query()->updateOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'tenant_id' => $tenant->id,
+                'name' => 'Example Admin',
+                'password' => bcrypt('password'),
+            ]
+        );
 
         $rbacManager->assignRole($user, 'admin');
         $rbacManager->grantPermissions($user, [config('permissions.super_permission')]);

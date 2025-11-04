@@ -55,7 +55,7 @@ class FinanceSeeder extends Seeder
             $financeService->createPledge([
                 'tenant_id' => $tenant->id,
                 'member_id' => $member->id,
-                'fund_id' => Arr::random($funds)->id,
+                'fund_id' => $funds->random()->id,
                 'amount' => random_int(100, 500),
                 'fulfilled_amount' => random_int(0, 300),
                 'currency' => 'USD',
@@ -65,8 +65,8 @@ class FinanceSeeder extends Seeder
         }
 
         foreach (range(1, 6) as $value) {
-            $member = Arr::random($members);
-            $fund = Arr::random($funds);
+            $member = $members->random();
+            $fund = $funds->random();
             $status = $value % 5 === 0 ? 'refunded' : 'succeeded';
 
             $donation = $financeService->recordDonation([

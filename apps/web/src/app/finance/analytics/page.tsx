@@ -13,6 +13,13 @@ import {
   AnalyticsBarChartCard,
   AnalyticsStatCard,
 } from "@/components/analytics/widgets";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { format, parseISO } from "date-fns";
 
 type Filters = {
@@ -107,16 +114,29 @@ export default function FinanceAnalyticsPage() {
         <p className="text-sm text-slate-600">
           Monitor giving trends, fund performance, and donor engagement.
         </p>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/finance/pledges"
+            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+          >
+            Manage pledge reminders
+          </a>
+        </div>
       </header>
 
-      <section className="rounded border border-slate-200 p-4">
-        <form className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <label className="text-sm font-medium text-slate-700">
-            Status
-            <select
-              value={filters.status}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, status: event.target.value }))
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Filters</CardTitle>
+          <CardDescription>Refine analytics by status, fund, or date range.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <form className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm font-medium text-slate-700">
+              Status
+              <select
+                value={filters.status}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, status: event.target.value }))
               }
               className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
             >
@@ -164,34 +184,35 @@ export default function FinanceAnalyticsPage() {
                 setFilters((prev) => ({ ...prev, dateTo: event.target.value }))
               }
               className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-        </form>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setFilters({ ...initialFilters })}
-            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            Clear filters
-          </button>
-          <button
-            type="button"
-            onClick={() => analyticsQuery.refetch()}
-            disabled={isFetching}
-            className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-          >
-            {isFetching ? "Refreshing…" : "Refresh"}
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            Export CSV
-          </button>
-        </div>
-      </section>
+              />
+            </label>
+          </form>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFilters({ ...initialFilters })}
+              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              Clear filters
+            </button>
+            <button
+              type="button"
+              onClick={() => analyticsQuery.refetch()}
+              disabled={isFetching}
+              className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {isFetching ? "Refreshing…" : "Refresh"}
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              Export CSV
+            </button>
+          </div>
+        </CardContent>
+      </Card>
 
       {errorMessage && (
         <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -271,20 +292,24 @@ function TopDonorsList({
   donors: FinanceAnalyticsResponse["top_donors"];
 }) {
   return (
-    <section className="rounded border border-slate-200 p-4">
-      <h3 className="text-base font-semibold text-slate-800">Top donors</h3>
-      <ul className="mt-4 space-y-3 text-sm text-slate-700">
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Top donors</CardTitle>
+        <CardDescription>Highest contribution amounts in the current filter.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-0 text-sm text-slate-700">
         {donors.map((donor) => (
-          <li key={`${donor.member_id ?? "anonymous"}-${donor.member_name}`} className="flex items-center justify-between rounded border border-slate-100 px-3 py-2">
+          <div
+            key={`${donor.member_id ?? "anonymous"}-${donor.member_name}`}
+            className="flex items-center justify-between rounded border border-slate-100 px-3 py-2"
+          >
             <span>{donor.member_name}</span>
             <span className="text-slate-500">${donor.total.toFixed(2)}</span>
-          </li>
+          </div>
         ))}
-        {!donors.length && (
-          <p className="text-sm text-slate-500">No donors in this range.</p>
-        )}
-      </ul>
-    </section>
+        {!donors.length && <p className="text-sm text-slate-500">No donors in this range.</p>}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -294,16 +319,19 @@ function RecentDonationsList({
   donations: FinanceAnalyticsResponse["recent_donations"];
 }) {
   return (
-    <section className="rounded border border-slate-200 p-4">
-      <h3 className="text-base font-semibold text-slate-800">Recent donations</h3>
-      <ul className="mt-4 space-y-3 text-sm text-slate-700">
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Recent donations</CardTitle>
+        <CardDescription>Latest donations matching your filters.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-0 text-sm text-slate-700">
         {donations.map((donation) => {
           const receivedLabel = donation.received_at
             ? format(parseISO(donation.received_at), "MMM d, yyyy")
             : "—";
 
           return (
-            <li key={donation.id} className="rounded border border-slate-100 p-3">
+            <div key={donation.id} className="rounded border border-slate-100 p-3">
               <div className="flex justify-between text-slate-800">
                 <span>{donation.member_name}</span>
                 <span>${donation.amount.toFixed(2)}</span>
@@ -311,13 +339,13 @@ function RecentDonationsList({
               <div className="mt-1 text-xs text-slate-500">
                 {donation.status} • {receivedLabel} • Funds: {donation.funds.join(", ") || "—"}
               </div>
-            </li>
+            </div>
           );
         })}
         {!donations.length && (
           <p className="text-sm text-slate-500">No donations recorded in this range.</p>
         )}
-      </ul>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

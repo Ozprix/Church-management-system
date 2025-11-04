@@ -94,6 +94,12 @@ export default function MembersPage() {
           >
             Finance analytics
           </a>
+          <a
+            href="/finance/pledges"
+            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+          >
+            Pledge reminders
+          </a>
         </div>
       </header>
 
