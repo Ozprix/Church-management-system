@@ -219,6 +219,7 @@ Route::prefix('v1')->group(function (): void {
             ->name('attendance.analytics');
         Route::get('attendance/analytics/export', AttendanceAnalyticsExportController::class)
             ->name('attendance.analytics.export');
+        Route::get('gatherings/calendar', [GatheringController::class, 'calendar']);
         Route::apiResource('attendance-analytics-reports', AttendanceAnalyticsReportController::class);
         Route::post('attendance-analytics-reports/{attendanceAnalyticsReport}/run', [AttendanceAnalyticsReportController::class, 'run']);
         Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/export', [AttendanceAnalyticsReportController::class, 'export']);

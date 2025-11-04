@@ -10,6 +10,7 @@ use App\Models\Gathering;
 use App\Services\AttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class GatheringController extends Controller
 {
@@ -36,6 +37,27 @@ class GatheringController extends Controller
             ->when($request->query('to'), fn ($query, $to) => $query->whereDate('starts_at', '<=', $to))
             ->orderByDesc('starts_at')
             ->paginate($request->integer('per_page', 15));
+
+        return GatheringResource::collection($gatherings)->response();
+    }
+
+    public function calendar(Request $request): JsonResponse
+    {
+        $from = $request->query('from')
+            ? Carbon::parse($request->query('from'))
+            : Carbon::now()->startOfMonth();
+
+        $to = $request->query('to')
+            ? Carbon::parse($request->query('to'))
+            : $from->copy()->endOfMonth();
+
+        $gatherings = Gathering::query()
+            ->with('service')
+            ->where('tenant_id', optional($request->attributes->get('tenant'))->id)
+            ->where('starts_at', '<=', $to)
+            ->where('ends_at', '>=', $from)
+            ->orderBy('starts_at')
+            ->get();
 
         return GatheringResource::collection($gatherings)->response();
     }
