@@ -1,15 +1,13 @@
-'use client';
+"use client";
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastProvider } from '@church/ui';
-import { ReactNode, useState } from 'react';
+import { ToastProvider } from "@church/ui";
+import { RootProvider } from "@/providers/root-provider";
+import type { ReactNode } from "react";
 
 export function Providers({ children }: { children: ReactNode }) {
-  const [client] = useState(() => new QueryClient());
-
   return (
-    <QueryClientProvider client={client}>
+    <RootProvider>
       <ToastProvider>{children}</ToastProvider>
-    </QueryClientProvider>
+    </RootProvider>
   );
 }

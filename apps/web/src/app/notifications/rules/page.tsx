@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import clsx from "clsx";
 import { useAuth } from "@/providers/auth-provider";
 import { apiFetch } from "@/lib/api";
 import {
@@ -17,6 +18,7 @@ import type {
   NotificationRule,
   NotificationRuleRun,
   NotificationTemplateSummary,
+  NotificationChannelHealth,
 } from "@/types/events";
 
 type RuleListResponse = {
@@ -208,6 +210,7 @@ export default function NotificationRulesPage(): React.ReactElement {
   const selectedRule = selectedRuleQuery.data?.data ?? null;
   const ruleRuns = selectedRule?.runs ?? [];
   const templates = templatesQuery.data?.data ?? [];
+  const channelHealth: NotificationChannelHealth[] = channelHealthQuery.data?.data ?? [];
 
   const handleCreateRule = (event: React.FormEvent) => {
     event.preventDefault();
@@ -238,14 +241,83 @@ export default function NotificationRulesPage(): React.ReactElement {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Notification automation
-        </h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Notification automation</h1>
         <p className="text-sm text-slate-600">
-          Define messaging rules, connect templates, and review delivery runs so
-          communications stay consistent.
+          Define messaging rules, connect templates, and keep SMS/email delivery pipelines healthy.
         </p>
       </header>
+
+      {channelHealthQuery.isLoading && (
+        <p className="text-sm text-slate-500">Checking channel health…</p>
+      )}
+
+      {!channelHealthQuery.isLoading && channelHealth.length > 0 && (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {channelHealth.map((health) => (
+            <Card key={health.channel}>
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base capitalize">{health.channel} delivery</CardTitle>
+                  <CardDescription>
+                    Last {health.window_days} days · {health.totals.sent} sent · {health.totals.failed} failed
+                  </CardDescription>
+                </div>
+                <span
+                  className={clsx(
+                    "rounded-full px-3 py-1 text-xs font-semibold capitalize",
+                    health.health === "healthy" && "bg-emerald-100 text-emerald-800",
+                    health.health === "degraded" && "bg-amber-100 text-amber-800",
+                    health.health === "idle" && "bg-slate-100 text-slate-600"
+                  )}
+                >
+                  {health.health}
+                </span>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-800">
+                    Delivery rate:{" "}
+                    {typeof health.delivery_rate === "number" ? `${health.delivery_rate}%` : "—"}
+                  </p>
+                  <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+                    <div
+                      className={clsx(
+                        "h-2 rounded-full transition-all",
+                        health.health === "healthy" ? "bg-emerald-500" : "bg-amber-500"
+                      )}
+                      style={{
+                        width: `${Math.max(
+                          0,
+                          Math.min(100, typeof health.delivery_rate === "number" ? health.delivery_rate : 0)
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="text-sm text-slate-600">
+                  <p className="font-semibold">Provider</p>
+                  <p>
+                    {health.provider?.name ?? "Unconfigured"} ·{" "}
+                    {health.provider?.configured ? (
+                      <span className="text-emerald-600">Keys installed</span>
+                    ) : (
+                      <span className="text-amber-600">Needs keys</span>
+                    )}
+                  </p>
+                  {health.provider?.details?.from && (
+                    <p className="text-xs text-slate-500">From: {health.provider.details.from}</p>
+                  )}
+                </div>
+                {health.last_error && (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                    Last error: {health.last_error}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+      )}
 
       <section className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <Card>

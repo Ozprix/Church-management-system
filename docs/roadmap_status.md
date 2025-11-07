@@ -37,11 +37,11 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Event calendar & resource scheduling | 🔄 | API now exposes calendar ranged fetch + conflict detection; next up is the calendar UI and drag/drop editing. |
-| Registrations & ticketing | 🔄 | Ticket types/registrations APIs with capacity & check-in implemented; build PWA flows to surface them. |
-| Notification rules engine | 🔄 | Notification rule service exists; needs UI builder, condition testing, and delivery queue integration. |
+| Event calendar & resource scheduling | ✅ | `/events/calendar` delivers drag/drop rescheduling, inline quick edit, and a keyboard-accessible “New event” modal; see `docs/phase3-calendar-smoke.md` for the latest test run. |
+| Registrations & ticketing | ✅ | Ticket type CRUD, attendee check-in, and capacity enforcement now surface inside the PWA (detail page + manage link from calendar). |
+| Notification rules engine | ✅ | UI builder, manual runs, and recent-run history ship alongside the automation service; delivery queues reuse the same engine and are live in the dashboard. |
 | Messaging integrations (SMS/Email) | ⏳ | Service stubs prepared; awaiting provider configuration and retry logic. |
-| Prayer request portal | ⏳ | Not yet implemented. |
+| Prayer request portal | ⏳ | Design brief drafted (`docs/prayer-request-portal.md`) covering API, permissions, UI; next up is schema + endpoint implementation. |
 
 ## Phase 4 – Engagement & Volunteer Management
 
@@ -63,8 +63,8 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 ## Immediate Next Actions
 
-- Run the Phase 1 QA checklist (see `docs/phase1-qa-checklist.md`) across members, families, custom fields, attendance, and visitor flows.
-- Capture any regressions or UX polish items as Phase 1.1 follow-ups.
-- Implement tenant-level policies for requiring 2FA on high-privilege roles and expose compliance reporting.
-- Extend tenant CLI helpers for batch execution (e.g., run commands across many tenants) and document operational playbooks.
-- Monitor the API CI workflow and extend coverage (linting, parallelisation) once the baseline stabilises.
+- Socialize the calendar/ticketing/notification go-live runbook (`docs/phase3-go-live-runbook.md`) with support + CS, capture tenant-specific deltas.
+- Begin SMS/email provider integrations, surfacing delivery status + retry dashboards inside `/notifications/rules`.
+- Define the prayer request portal flow (public form, staff triage inbox, notification routing) and capture API contracts.
+- Expand automated coverage: add calendar interaction tests (drag/drop + modal) and queue them in the Node 20 CI job.
+- Stand up analytics dashboards for launch KPIs (adoption, comms delivery, ticket sell-through) using the existing chart components.

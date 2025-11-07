@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\Membership\MemberProcessRunController;
 use App\Http\Controllers\Api\Membership\MembershipProcessController;
 use App\Http\Controllers\Api\Membership\MembershipProcessReportController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\NotificationHealthController;
 use App\Http\Controllers\Api\NotificationRuleController;
 use App\Http\Controllers\Api\NotificationTemplateController;
 use App\Http\Controllers\Api\Security\TenantSecurityPolicyController;
@@ -176,6 +177,7 @@ Route::prefix('v1')->group(function (): void {
         Route::apiResource('gatherings', GatheringController::class);
 
         Route::apiResource('notification-templates', NotificationTemplateController::class);
+        Route::get('notifications/health', NotificationHealthController::class);
         Route::apiResource('notifications', NotificationController::class);
         Route::apiResource('notification-rules', NotificationRuleController::class);
         Route::post('notification-rules/{notification_rule}/run', [NotificationRuleController::class, 'run']);

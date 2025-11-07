@@ -3,7 +3,7 @@
 This guide explains how to bring up the monorepo scaffolding for the church management SaaS platform.
 
 ## 1. Tooling Requirements
-- **Node.js 18+** with `corepack` enabled (required for `pnpm`). You may need elevated permissions when enabling corepack because it creates symlinks in your global `bin` directory.
+- **Node.js 20.x** with `corepack` enabled (required for `pnpm`). You may need elevated permissions when enabling corepack because it creates symlinks in your global `bin` directory. Earlier LTS releases work for development, but the production build pipeline targets Node 20—matching it locally avoids optional dependency gaps (e.g., Rollup’s native binaries used by Vitest).
 - **Docker Desktop** (used by Laravel Sail bootstrap image).
 - **Git** for version control operations.
 
@@ -117,7 +117,33 @@ If you need to pass additional Artisan flags, append them after the command (`te
 - Populate Laravel tenancy middleware and Next.js application shells following `docs/architecture.md`.
 - Keep generated contracts in sync by updating `packages/contracts/openapi/church.json` and re-running the generator script.
 
-## 11. Two-Factor Authentication Workflow
+## 11. Node 20 Build & Test Workflow
+The Next.js workspace ships with 14.2.10 and expects Node 20. Optional dependencies (e.g., `@rollup/rollup-darwin-arm64`) will fail to install under Node 18, breaking Vitest. Use one of the following approaches:
+
+1. **Adopt Node 20 locally** (`nvm install 20 && nvm use 20`) and reinstall dependencies (`pnpm install --no-optional`). Then run:
+   ```bash
+   pnpm --filter web lint
+   pnpm --filter web test
+   pnpm --filter web build
+   ```
+
+2. **Use a disposable Node 20 container**:
+   ```bash
+   docker run --rm \
+     -v "$(pwd)":/workspace \
+     -w /workspace \
+     node:20 bash -lc "
+       corepack enable pnpm &&
+       pnpm install --no-frozen-lockfile &&
+       pnpm --filter web lint &&
+       pnpm --filter web test &&
+       pnpm --filter web build
+     "
+   ```
+
+CI pipelines also pin Node 20 for parity with production.
+
+## 12. Two-Factor Authentication Workflow
 - Login requests (`POST /api/v1/auth/login`) now issue a single active Sanctum token per user. When 2FA is enabled, include either `code` (TOTP) or `recovery_code`.
 - Enable 2FA: `POST /api/v1/auth/two-factor/setup` (returns secret + recovery codes) followed by `POST /api/v1/auth/two-factor/confirm` with a valid TOTP code.
 - Regenerate recovery codes: `POST /api/v1/auth/two-factor/recovery-codes` with a current TOTP code.

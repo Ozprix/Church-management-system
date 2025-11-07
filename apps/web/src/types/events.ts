@@ -94,3 +94,21 @@ export interface NotificationRuleRun {
   error_message: string | null;
   metadata?: Record<string, unknown> | null;
 }
+
+export interface NotificationChannelHealth {
+  channel: string;
+  window_days: number;
+  totals: {
+    queued: number;
+    sent: number;
+    failed: number;
+  };
+  delivery_rate: number | null;
+  health: "healthy" | "degraded" | "idle";
+  last_error: string | null;
+  provider: {
+    name: string;
+    configured: boolean;
+    details?: Record<string, string | null> | null;
+  } | null;
+}
