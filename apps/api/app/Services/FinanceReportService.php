@@ -28,6 +28,6 @@ class FinanceReportService
 
         GenerateFinanceReportJob::dispatch($report->id);
 
-        return $report->fresh();
+        return $report->fresh(['requester']);
     }
 }

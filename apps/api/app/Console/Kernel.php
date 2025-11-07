@@ -2,13 +2,19 @@
 
 namespace App\Console;
 
+use App\Console\Commands\CheckLedgerBalanceCommand;
 use App\Console\Commands\ProcessTrialExpirationsCommand;
+use App\Console\Commands\RbacSyncCommand;
 use App\Console\Commands\RunRecurringDonations;
 use App\Console\Commands\RunVisitorFollowups;
 use App\Console\Commands\SendFamilyRemindersCommand;
 use App\Console\Commands\SendMemberStaleProfilesAlertCommand;
+use App\Console\Commands\SendPledgeRemindersCommand;
+use App\Console\Commands\SendVolunteerSignupFollowupsCommand;
 use App\Console\Commands\RunMemberAnalyticsReportsCommand;
+use App\Console\Commands\RunAttendanceAnalyticsReportsCommand;
 use App\Console\Commands\SendVisitorOverdueRemindersCommand;
+use App\Console\Commands\CleanupAttendanceReportSnapshotsCommand;
 use App\Console\Commands\TenantRunBatchCommand;
 use App\Console\Commands\TenantRunCommand;
 use App\Console\Commands\TenantSeedCommand;
@@ -23,11 +29,17 @@ class Kernel extends ConsoleKernel
         ProcessTrialExpirationsCommand::class,
         SendFamilyRemindersCommand::class,
         SendMemberStaleProfilesAlertCommand::class,
+        SendPledgeRemindersCommand::class,
+        SendVolunteerSignupFollowupsCommand::class,
+        CheckLedgerBalanceCommand::class,
         RunMemberAnalyticsReportsCommand::class,
+        RunAttendanceAnalyticsReportsCommand::class,
         SendVisitorOverdueRemindersCommand::class,
+        RbacSyncCommand::class,
         TenantRunBatchCommand::class,
         TenantRunCommand::class,
         TenantSeedCommand::class,
+        CleanupAttendanceReportSnapshotsCommand::class,
     ];
 
     protected function schedule(Schedule $schedule): void
@@ -37,7 +49,12 @@ class Kernel extends ConsoleKernel
         $schedule->command('billing:process-trials')->dailyAt('00:30');
         $schedule->command('families:send-reminders')->dailyAt('08:00');
         $schedule->command('members:send-stale-alerts')->dailyAt('07:30');
+        $schedule->command('pledges:send-reminders')->hourly();
         $schedule->command('members:run-saved-reports')->dailyAt('06:00');
+        $schedule->command('attendance:run-saved-reports')->dailyAt('06:30');
+        $schedule->command('attendance:cleanup-snapshots')->dailyAt('05:30');
         $schedule->command('visitors:send-overdue-reminders')->dailyAt('09:00');
+        $schedule->command('finance:ledger-check')->monthlyOn(1, '02:00');
+        $schedule->command('volunteers:send-followups')->hourly();
     }
 }

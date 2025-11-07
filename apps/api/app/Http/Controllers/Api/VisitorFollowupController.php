@@ -25,6 +25,7 @@ class VisitorFollowupController extends Controller
         $tenant = $request->attributes->get('tenant');
         $followups = VisitorFollowup::query()
             ->with(['workflow', 'currentStep'])
+            ->withCount('logs')
             ->when($tenant, fn ($query) => $query->where('tenant_id', $tenant->id))
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
             ->orderByDesc('created_at')
@@ -52,13 +53,13 @@ class VisitorFollowupController extends Controller
 
         $followup = $this->automationService->startFollowup($member, $workflow);
 
-        return VisitorFollowupResource::make($followup->load(['workflow', 'currentStep']));
+        return VisitorFollowupResource::make($followup->load(['workflow', 'currentStep'])->loadCount('logs'));
     }
 
     public function update(VisitorFollowup $visitorFollowup): VisitorFollowupResource
     {
         $updated = $this->automationService->haltFollowup($visitorFollowup);
 
-        return VisitorFollowupResource::make($updated);
+        return VisitorFollowupResource::make($updated->loadCount('logs'));
     }
 }

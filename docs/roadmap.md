@@ -28,6 +28,7 @@ _Progress tracker: see `docs/roadmap_status.md` for up-to-date status per workst
 - Notification rules engine (birthdays, absentees), templating, scheduling queue.
 - SMS/Email integrations with status tracking + delivery reports.
 - Prayer request portal & follow-up assignments.
+- Go-live checklist: see `docs/phase3-go-live-runbook.md`.
 
 ## Phase 4 – Engagement & Volunteer Management (Week 19-22)
 - Internal messaging (real-time via Laravel WebSockets), group chat, attachments.

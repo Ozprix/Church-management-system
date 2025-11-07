@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use App\Models\GatheringTicketType;
+use App\Models\GatheringRegistration;
 
 class Gathering extends Model
 {
@@ -78,5 +80,15 @@ class Gathering extends Model
             'created_at',
             'updated_at',
         ]);
+    }
+
+    public function ticketTypes(): HasMany
+    {
+        return $this->hasMany(GatheringTicketType::class);
+    }
+
+    public function registrations(): HasMany
+    {
+        return $this->hasMany(GatheringRegistration::class);
     }
 }

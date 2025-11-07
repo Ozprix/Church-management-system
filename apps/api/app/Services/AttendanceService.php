@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\AttendanceRecorded;
 use App\Models\AttendanceRecord;
 use App\Models\Gathering;
 use App\Models\Member;
@@ -87,6 +88,14 @@ class AttendanceService
             $data['ends_at'] = Carbon::parse($data['starts_at'])->addMinutes($defaultDuration);
         }
 
+        $this->ensureNoConflicts(
+            tenantId: $tenantId,
+            startsAt: Carbon::parse($data['starts_at']),
+            endsAt: Carbon::parse($data['ends_at']),
+            location: $data['location'] ?? null,
+            serviceId: $data['service_id'] ?? null,
+        );
+
         return Gathering::create($data);
     }
 
@@ -115,6 +124,32 @@ class AttendanceService
 
         unset($payload['service_id']);
 
+        $startsAt = array_key_exists('starts_at', $payload)
+            ? Carbon::parse($payload['starts_at'])
+            : $gathering->starts_at;
+
+        $endsAt = array_key_exists('ends_at', $payload)
+            ? Carbon::parse($payload['ends_at'])
+            : $gathering->ends_at;
+
+        $location = array_key_exists('location', $payload)
+            ? $payload['location']
+            : $gathering->location;
+
+        $serviceId = $gathering->service?->id;
+        if (array_key_exists('service_id', $attributes)) {
+            $serviceId = $attributes['service_id'] ?? null;
+        }
+
+        $this->ensureNoConflicts(
+            tenantId: $gathering->tenant_id,
+            startsAt: $startsAt,
+            endsAt: $endsAt ?? $startsAt->copy()->addMinutes(90),
+            location: $location,
+            serviceId: $serviceId,
+            ignoreGathering: $gathering,
+        );
+
         $gathering->fill($payload);
 
         $gathering->save();
@@ -142,7 +177,7 @@ class AttendanceService
             $payload['checked_in_at'] = Carbon::now();
         }
 
-        return AttendanceRecord::updateOrCreate(
+        $record = AttendanceRecord::updateOrCreate(
             [
                 'tenant_id' => $gathering->tenant_id,
                 'gathering_id' => $gathering->id,
@@ -150,6 +185,10 @@ class AttendanceService
             ],
             $payload
         );
+
+        event(new AttendanceRecorded($record->fresh(['member', 'gathering.service'])));
+
+        return $record;
     }
 
     public function bulkRecordAttendance(Gathering $gathering, array $members, string $status = 'present'): void
@@ -160,6 +199,52 @@ class AttendanceService
             }
 
             $this->recordAttendance($gathering, $member, ['status' => $status]);
+        }
+    }
+
+    protected function ensureNoConflicts(
+        int $tenantId,
+        Carbon $startsAt,
+        Carbon $endsAt,
+        ?string $location,
+        ?int $serviceId,
+        ?Gathering $ignoreGathering = null
+    ): void {
+        $query = Gathering::query()
+            ->where('tenant_id', $tenantId)
+            ->where('starts_at', '<', $endsAt)
+            ->where('ends_at', '>', $startsAt);
+
+        if ($location) {
+            $query->where(function ($builder) use ($location, $serviceId): void {
+                $builder->where(function ($inner) use ($location): void {
+                    $inner->whereNotNull('location')
+                        ->where('location', $location);
+                });
+
+                if ($serviceId) {
+                    $builder->orWhere('service_id', $serviceId);
+                }
+            });
+        } elseif ($serviceId) {
+            $query->where('service_id', $serviceId);
+        }
+
+        if ($ignoreGathering) {
+            $query->where('id', '!=', $ignoreGathering->id);
+        }
+
+        $conflict = $query->first();
+
+        if ($conflict) {
+            throw ValidationException::withMessages([
+                'starts_at' => sprintf(
+                    'Conflicts with existing gathering "%s" from %s to %s.',
+                    $conflict->name,
+                    $conflict->starts_at?->toDayDateTimeString(),
+                    $conflict->ends_at?->toDayDateTimeString()
+                ),
+            ]);
         }
     }
 }

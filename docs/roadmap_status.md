@@ -16,32 +16,32 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Member CRUD + validation | 🔄 | Controllers, resources, service layer, and feature coverage now include happy-path, validation failure, auditing assertions, filter/search + pagination scenarios, restore support, throttled bulk import/delete, async CSV import queue with monitoring, member audit timeline endpoints, and initial web dashboards (members list, analytics view); remaining UI polish includes richer charting and advanced filters. |
-| Custom fields & documents | 🔄 | API endpoints are scaffolded; file storage configuration, validation, and UI wiring pending. |
-| Family grouping & household comms | ⏳ | Controllers seeded; household analytics (`/families/analytics`) now surface size/relationship KPIs, with orchestration logic, notifications, and UI polish still pending. |
-| Attendance tracking & kiosk mode | ⏳ | Attendance controllers exist; kiosk PWA mode and offline sync still to build. |
-| Visitor intake & lifecycle | ⏳ | Workflow scaffolding created; needs automation rules, notifications, and reporting. |
+| Member CRUD + validation | ✅ | End-to-end flows cover validation, auditing, bulk operations, analytics dashboards, and QA regression. Remaining enhancements (advanced filtering, richer charts) tracked as Phase 1.1 polish tasks. |
+| Custom fields & documents | ✅ | Admins can configure custom fields with file-type controls; member profiles expose document uploads with inline errors and download links. |
+| Family grouping & household comms | ✅ | Households manage assignments/contacts, analytics highlight follow-up gaps, and document storage supports pastoral coordination. Future automations graduate to Phase 2. |
+| Attendance tracking & kiosk mode | 🔄 | API supports check-in workflows, the `/attendance/kiosk` PWA provides offline sync, `/attendance/analytics` surfaces trends + exports, and saved reports (`/attendance/reports`) now schedule recurring summaries; remaining work: hardware QR integration. |
+| Visitor intake & lifecycle | ✅ | Rule builder, staff email steps, and contextual automation checks are live; analytics and funnels surface conversion metrics, with logs noting skipped rules. |
 | Reporting (directory, attendance dashboard) | ⏳ | Analytics controllers started, dashboards and exports need polishing and UI integration. |
 
 ## Phase 2 – Financial Suite
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Donation intake & Stripe webhooks | 🔄 | Donation service and webhook controller exist; need live gateway integration tests and receipt templates. |
-| Pledge management & reminders | ⏳ | Models and services scaffolded, reminder scheduling logic outstanding. |
-| Ledger & journal subsystem | ⏳ | Ledger model exists; double-entry enforcement and reconciliation tooling still required. |
-| Expense workflow UI | ⏳ | No implementation yet; requires endpoints, approval logic, and PWA screens. |
-| Financial reports & statements | 🔄 | Export endpoints added along with finance analytics dashboard (`/finance/analytics`); formatting, PDF generation, and tenant branding pending. |
+| Donation intake & Stripe webhooks | ✅ | Stripe webhooks covered; live Stripe integration test now runs when credentials are present, confirming payment intents end-to-end. |
+| Pledge management & reminders | 🔄 | Reminder scheduler/queue tested end-to-end (tenant + limit options, auto-disable on fulfilment); pledge reminder UI lives under Finance > Pledge reminders and is gated by `finance.manage_pledges`; remaining work focuses on campaign UI & reminder UX polish. |
+| Ledger & journal subsystem | ✅ | General ledger enforcement now posts balanced entries for donations and reimbursements; monthly trial balance tooling verifies double-entry integrity per tenant. |
+| Expense workflow UI | ✅ | Expenses API with submission/approval/reimbursement states plus new finance/expenses PWA section. |
+| Financial reports & statements | ✅ | Tenant-branded PDF exports (statements, balance sheet, donor letters) available under Finance &gt; Branded PDFs. |
 
 ## Phase 3 – Events & Communications
 
 | Workstream | Status | Notes & Follow-Ups |
 | --- | --- | --- |
-| Event calendar & resource scheduling | ⏳ | Basic gathering endpoints live; conflict resolution, UI calendar, and notifications not started. |
-| Registrations & ticketing | ⏳ | No backend/frontend implementation yet. |
-| Notification rules engine | 🔄 | Notification rule service exists; needs UI builder, condition testing, and delivery queue integration. |
+| Event calendar & resource scheduling | ✅ | `/events/calendar` delivers drag/drop rescheduling, inline quick edit, and a keyboard-accessible “New event” modal; see `docs/phase3-calendar-smoke.md` for the latest test run. |
+| Registrations & ticketing | ✅ | Ticket type CRUD, attendee check-in, and capacity enforcement now surface inside the PWA (detail page + manage link from calendar). |
+| Notification rules engine | ✅ | UI builder, manual runs, and recent-run history ship alongside the automation service; delivery queues reuse the same engine and are live in the dashboard. |
 | Messaging integrations (SMS/Email) | ⏳ | Service stubs prepared; awaiting provider configuration and retry logic. |
-| Prayer request portal | ⏳ | Not yet implemented. |
+| Prayer request portal | ⏳ | Design brief drafted (`docs/prayer-request-portal.md`) covering API, permissions, UI; next up is schema + endpoint implementation. |
 
 ## Phase 4 – Engagement & Volunteer Management
 
@@ -63,7 +63,8 @@ Statuses: ✅ Done · 🔄 In Progress · ⏳ Pending · ⚠️ Blocked.
 
 ## Immediate Next Actions
 
-- Implement tenant-level policies for requiring 2FA on high-privilege roles and expose compliance reporting.
-- Prioritize member module feature tests and auditing hooks to close Phase 1 gaps.
-- Extend tenant CLI helpers for batch execution (e.g., run commands across many tenants) and document operational playbooks.
-- Monitor the new API CI workflow and extend coverage (linting, parallelisation) once the baseline stabilises.
+- Socialize the calendar/ticketing/notification go-live runbook (`docs/phase3-go-live-runbook.md`) with support + CS, capture tenant-specific deltas.
+- Begin SMS/email provider integrations, surfacing delivery status + retry dashboards inside `/notifications/rules`.
+- Define the prayer request portal flow (public form, staff triage inbox, notification routing) and capture API contracts.
+- Expand automated coverage: add calendar interaction tests (drag/drop + modal) and queue them in the Node 20 CI job.
+- Stand up analytics dashboards for launch KPIs (adoption, comms delivery, ticket sell-through) using the existing chart components.

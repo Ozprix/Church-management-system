@@ -24,7 +24,7 @@ class AuthServiceProvider extends ServiceProvider
                 return true;
             }
 
-            if ($user->hasPermission('*')) {
+            if ($user->allPermissionSlugs()->contains('*')) {
                 return true;
             }
 

@@ -4,6 +4,8 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\GatheringTicketTypeResource;
+use App\Http\Resources\GatheringRegistrationResource;
 
 /** @mixin \App\Models\Gathering */
 class GatheringResource extends JsonResource
@@ -24,6 +26,8 @@ class GatheringResource extends JsonResource
             'notes' => $this->notes,
             'metadata' => $this->metadata,
             'service' => ServiceResource::make($this->whenLoaded('service')),
+            'ticket_types' => GatheringTicketTypeResource::collection($this->whenLoaded('ticketTypes')),
+            'registrations' => GatheringRegistrationResource::collection($this->whenLoaded('registrations')),
             'attendance' => $this->attendanceSummary(),
             'attendance_records' => AttendanceRecordResource::collection($this->whenLoaded('attendanceRecords')),
             'created_at' => $this->created_at?->toIso8601String(),

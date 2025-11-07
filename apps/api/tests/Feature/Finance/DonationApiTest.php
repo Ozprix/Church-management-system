@@ -78,11 +78,15 @@ class DonationApiTest extends TestCase
         $this->assertSame('Donations Income', $incomeEntry->account);
         $this->assertSame('donation', $incomeEntry->metadata['kind'] ?? null);
         $this->assertEquals(250.00, (float) $incomeEntry->amount);
+        $this->assertNotNull($incomeEntry->financial_account_id);
+        $this->assertSame('income.donations', $incomeEntry->financialAccount?->code);
 
         $this->assertNotNull($assetEntry);
         $this->assertSame('Cash - Undeposited Funds', $assetEntry->account);
         $this->assertSame('donation', $assetEntry->metadata['kind'] ?? null);
         $this->assertEquals(250.00, (float) $assetEntry->amount);
+        $this->assertNotNull($assetEntry->financial_account_id);
+        $this->assertSame('assets.cash.undeposited', $assetEntry->financialAccount?->code);
     }
 
     public function test_donation_update_replaces_items(): void
@@ -139,6 +143,7 @@ class DonationApiTest extends TestCase
         $this->assertSame(2, $ledgerEntries->count());
         $this->assertEquals(150.00, (float) $ledgerEntries->first()->amount);
         $this->assertEquals(150.00, (float) $ledgerEntries->last()->amount);
+        $this->assertTrue($ledgerEntries->every(fn ($entry) => $entry->financial_account_id !== null));
     }
 
     public function test_it_rejects_donation_items_for_other_tenants(): void

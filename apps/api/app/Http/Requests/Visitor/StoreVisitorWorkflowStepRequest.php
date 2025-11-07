@@ -17,7 +17,7 @@ class StoreVisitorWorkflowStepRequest extends FormRequest
             'step_number' => ['required', 'integer', 'min:1'],
             'name' => ['nullable', 'string', 'max:191'],
             'delay_minutes' => ['nullable', 'integer', 'min:0'],
-            'channel' => ['required', 'in:email,sms,task'],
+            'channel' => ['required', 'in:email,sms,task,staff_email'],
             'notification_template_id' => ['nullable', 'integer', 'exists:notification_templates,id'],
             'metadata' => ['nullable', 'array'],
             'is_active' => ['sometimes', 'boolean'],

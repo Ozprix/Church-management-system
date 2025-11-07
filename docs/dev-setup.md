@@ -3,7 +3,7 @@
 This guide explains how to bring up the monorepo scaffolding for the church management SaaS platform.
 
 ## 1. Tooling Requirements
-- **Node.js 18+** with `corepack` enabled (required for `pnpm`). You may need elevated permissions when enabling corepack because it creates symlinks in your global `bin` directory.
+- **Node.js 20.x** with `corepack` enabled (required for `pnpm`). You may need elevated permissions when enabling corepack because it creates symlinks in your global `bin` directory. Earlier LTS releases work for development, but the production build pipeline targets Node 20—matching it locally avoids optional dependency gaps (e.g., Rollup’s native binaries used by Vitest).
 - **Docker Desktop** (used by Laravel Sail bootstrap image).
 - **Git** for version control operations.
 
@@ -64,7 +64,7 @@ Tenant-aware Artisan commands let you run maintenance tasks without hand-rolling
 - `tenant:run {tenant} <command …>` executes any Artisan command for a single tenant (ID, UUID, or slug). Example (local PHP):  
   `php artisan tenant:run example queue:work --once`
 - `tenant:seed {tenant} [--class=DemoSeeder] [--database=foo]` ensures the tenant context is set while running seeders.
-- `tenant:run-batch <command …>` targets many tenants at once with filters such as `--plan`, `--status`, `--tenant`, `--except`, or the shortcut `--only-active`. Extra ergonomics include `--chunk`, `--delay`, `--pretend`, `--stop-on-failure`, and a per-run success/failure summary.
+- `tenant:run-batch <command …>` targets many tenants at once with filters such as `--plan`, `--status`, `--tenant`, `--except`, or the shortcut `--only-active`. Extra ergonomics include `--chunk`, `--delay`, `--pretend`, `--stop-on-failure`, interactive confirmation via `--confirm` (pair with `--yes` for non-interactive automation), and machine-readable summaries with `--format=json` (includes any identifiers skipped by filters).
 
 ### Sail examples
 ```bash
@@ -72,9 +72,18 @@ Tenant-aware Artisan commands let you run maintenance tasks without hand-rolling
 ./vendor/bin/sail artisan tenant:run example cache:clear
 ./vendor/bin/sail artisan tenant:seed example --class=VolunteerSeeder
 ./vendor/bin/sail artisan tenant:run-batch cache:clear --plan=standard --pretend
+./vendor/bin/sail artisan tenant:run-batch queue:restart --only-active --confirm
+./vendor/bin/sail artisan tenant:run-batch reports:generate --format=json --tenant=example
 ```
 
 If you need to pass additional Artisan flags, append them after the command (`tenant:run example queue:restart --force`). When using Sail, keep the `sail up` step separate—passing command options to `sail up` produces “unknown flag” errors.
+
+## 8. RBAC Toolkit
+- `php artisan rbac:sync [--tenant=<id|uuid|slug>] [--prune-roles] [--prune-features] [--prune-permissions]` keeps global permissions, tenant roles, and feature toggles aligned with `config/permissions.php`. Pair with `tenant:run-batch` for bulk execution once multi-tenant automation is needed.
+- API endpoints (auth + `rbac.view` permission required):
+  - `GET /api/v1/rbac/roles` returns tenant roles, assigned permissions, default status, and user counts.
+  - `GET /api/v1/rbac/permissions` lists permission metadata grouped by module alongside current feature enablement.
+- Seeders automatically call the RBAC sync workflow, so new environments and demo tenants include a consistent registry out of the box.
 
 ### Member Imports
 - `POST /api/v1/members/bulk-import` supports JSON payloads (max 50 records per request) for synchronous creation; requests are throttled (`10/min`) to keep load predictable.
@@ -84,6 +93,7 @@ If you need to pass additional Artisan flags, append them after the command (`te
 - Custom rate-limiters (`member-import-upload`, `member-bulk-operations`) emit structured logs and a `ThrottleLimitExceeded` event when caps are hit—wire those into your monitoring stack for alerting.
 - Audit timeline endpoint: `GET /api/v1/members/{uuid}/audits` returns paginated change history (actions, actor, payload), powering the member detail activity feed.
 - Family analytics: `GET /api/v1/families/analytics` + `/families/analytics/export` surfaces household metrics; finance analytics mirror this at `/api/v1/finance/analytics` + `/finance/analytics/export`.
+- The web app exposes dashboards at `/families/analytics`, `/finance/analytics`, and `/members/analytics` with export buttons and filter panels that map to those endpoints.
 - Front-end expectations: set `NEXT_PUBLIC_API_BASE_URL` (Laravel domain) and `NEXT_PUBLIC_TENANT_ID` (slug/UUID) so client fetches send Sanctum cookies with the correct `X-Tenant-ID` header. Dashboards live at `/members/analytics`, `/families/analytics`, and `/finance/analytics`.
 - For local auth, create `.env.local` inside `apps/web` with:
   ```env
@@ -93,12 +103,47 @@ If you need to pass additional Artisan flags, append them after the command (`te
   Ensure Sanctum cookie domain/settings match your local host (update Laravel `.env` for `SESSION_DOMAIN` / `SANCTUM_STATEFUL_DOMAINS`). Start the API (`sail up`) and sign in via `/login`, then navigate to `/members`, `/families/analytics`, or `/finance/analytics` to verify end-to-end cookies.
   The default seeded admin user is `admin@example.com` with password `password` (see `DatabaseSeeder`).
 
-## 8. Next Actions
+## 9. API Container & CI
+- Production Dockerfile lives at `apps/api/docker/Dockerfile` with a non-root runtime user and cache-warming entrypoint.
+- Build locally via `docker build -f docker/Dockerfile -t church-api:local apps/api`.
+- GitHub Actions (`api-container.yml`) builds the image and performs a Trivy scan on every PR/push to `dev`.
+- See `docs/devops.md` for the full DevOps guide and `docs/secrets-management.md` for handling encrypted `.env` files with SOPS.
+
+- Attendance kiosk lives at `/attendance/kiosk` in the PWA. It caches data for offline use and stores check-ins locally until the device reconnects. Pending check-ins sync automatically once online.
+- Member custom-field uploads write to the `custom_fields` filesystem disk (`storage/app/custom-fields` by default). Adjust `CUSTOM_FIELD_FILES_*` variables in `apps/api/.env` if you want to point at S3 or another bucket; remember to set a `visibility` that matches your storage provider.
+
+## 10. Next Actions
 - Install dependencies (`pnpm install`) after corepack/pnpm is enabled and network access is available.
 - Populate Laravel tenancy middleware and Next.js application shells following `docs/architecture.md`.
 - Keep generated contracts in sync by updating `packages/contracts/openapi/church.json` and re-running the generator script.
 
-## 9. Two-Factor Authentication Workflow
+## 11. Node 20 Build & Test Workflow
+The Next.js workspace ships with 14.2.10 and expects Node 20. Optional dependencies (e.g., `@rollup/rollup-darwin-arm64`) will fail to install under Node 18, breaking Vitest. Use one of the following approaches:
+
+1. **Adopt Node 20 locally** (`nvm install 20 && nvm use 20`) and reinstall dependencies (`pnpm install --no-optional`). Then run:
+   ```bash
+   pnpm --filter web lint
+   pnpm --filter web test
+   pnpm --filter web build
+   ```
+
+2. **Use a disposable Node 20 container**:
+   ```bash
+   docker run --rm \
+     -v "$(pwd)":/workspace \
+     -w /workspace \
+     node:20 bash -lc "
+       corepack enable pnpm &&
+       pnpm install --no-frozen-lockfile &&
+       pnpm --filter web lint &&
+       pnpm --filter web test &&
+       pnpm --filter web build
+     "
+   ```
+
+CI pipelines also pin Node 20 for parity with production.
+
+## 12. Two-Factor Authentication Workflow
 - Login requests (`POST /api/v1/auth/login`) now issue a single active Sanctum token per user. When 2FA is enabled, include either `code` (TOTP) or `recovery_code`.
 - Enable 2FA: `POST /api/v1/auth/two-factor/setup` (returns secret + recovery codes) followed by `POST /api/v1/auth/two-factor/confirm` with a valid TOTP code.
 - Regenerate recovery codes: `POST /api/v1/auth/two-factor/recovery-codes` with a current TOTP code.

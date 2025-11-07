@@ -1,0 +1,6 @@
+creation_rules:
+  - path_regex: infra/secrets/.*\.enc$
+    age:
+      # Replace with your age public key (age1...)
+      - age1q9rx5laax3ddvdl930udzlgkk3wcurd0mxlfnh8szqjg6kqz3d3sevk3mw
+    encrypted_regex: '^(data|stringData)$'

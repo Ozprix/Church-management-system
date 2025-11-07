@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.resolve' => App\Http\Middleware\ResolveTenant::class,
             'feature' => App\Http\Middleware\EnsureFeatureIsEnabled::class,
             'audit' => App\Http\Middleware\AuditRequest::class,
+            'two_factor.enforce' => App\Http\Middleware\EnsureTwoFactorCompliance::class,
         ]);
 
         $middleware->prependToGroup('api', App\Http\Middleware\ResolveTenant::class);
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withProviders([
         App\Providers\TenancyServiceProvider::class,
         App\Providers\AuthServiceProvider::class,
+        App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
     ])
     ->withExceptions(function (Exceptions $exceptions): void {

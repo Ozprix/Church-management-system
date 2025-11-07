@@ -24,6 +24,7 @@ class VisitorFollowupResource extends JsonResource
             'current_step' => VisitorWorkflowStepResource::make($this->whenLoaded('currentStep')),
             'workflow' => VisitorWorkflowResource::make($this->whenLoaded('workflow')),
             'logs' => VisitorFollowupLogResource::collection($this->whenLoaded('logs')),
+            'logs_count' => $this->whenCounted('logs', $this->logs_count ?? 0),
         ];
     }
 }

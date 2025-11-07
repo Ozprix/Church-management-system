@@ -28,6 +28,10 @@ class Pledge extends Model
         'status',
         'notes',
         'metadata',
+        'reminder_enabled',
+        'reminder_cadence',
+        'next_reminder_at',
+        'last_reminder_sent_at',
     ];
 
     protected $casts = [
@@ -36,6 +40,9 @@ class Pledge extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'metadata' => 'array',
+        'reminder_enabled' => 'boolean',
+        'next_reminder_at' => 'datetime',
+        'last_reminder_sent_at' => 'datetime',
     ];
 
     public function tenant(): BelongsTo

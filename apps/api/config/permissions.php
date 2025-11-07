@@ -196,6 +196,22 @@ return [
                 ],
             ],
         ],
+        'rbac' => [
+            'feature' => 'rbac',
+            'label' => 'Roles & Permissions',
+            'description' => 'Review and administer tenant roles, permissions, and feature access.',
+            'enabled_by_default' => true,
+            'permissions' => [
+                'rbac.view' => [
+                    'name' => 'View role & permission registry',
+                    'description' => 'Inspect tenant role assignments, permissions, and feature toggles.',
+                ],
+                'rbac.manage' => [
+                    'name' => 'Manage role & permission registry',
+                    'description' => 'Modify tenant roles, permissions, and feature availability.',
+                ],
+            ],
+        ],
         'finance' => [
             'feature' => 'finance',
             'label' => 'Finance & Giving',
@@ -221,6 +237,10 @@ return [
                 'finance.manage_pledges' => [
                     'name' => 'Manage pledges',
                     'description' => 'Create and manage pledge commitments.',
+                ],
+                'finance.manage_expenses' => [
+                    'name' => 'Manage expenses',
+                    'description' => 'Submit, approve, and reimburse ministry expenses.',
                 ],
                 'finance.manage_recurring' => [
                     'name' => 'Manage recurring donations',
@@ -276,6 +296,8 @@ return [
                 'tenancy.view_plans',
                 'tenancy.manage_onboarding',
                 'tenancy.manage_plans',
+                'rbac.view',
+                'rbac.manage',
                 'compliance.view_audit_logs',
                 'compliance.manage_retention',
                 'users.manage_security',
@@ -322,6 +344,7 @@ return [
                 'finance.manage_donations',
                 'finance.manage_payment_methods',
                 'finance.manage_pledges',
+                'finance.manage_expenses',
                 'finance.manage_recurring',
                 'finance.export',
                 'reports.finance_generate',

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Support\Tenancy\TenantManager;
+use App\Services\Security\TenantSecurityPolicyService;
 use App\Services\TwoFactorAuthenticationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,8 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     public function __construct(
-        private readonly TwoFactorAuthenticationService $twoFactor
+        private readonly TwoFactorAuthenticationService $twoFactor,
+        private readonly TenantSecurityPolicyService $securityPolicies
     ) {
     }
 
@@ -49,6 +51,11 @@ class AuthController extends Controller
                 'email' => __('Invalid credentials provided.'),
             ]);
         }
+
+        $user->setRelation('tenant', $tenant);
+
+        $policy = $this->securityPolicies->getPolicyForTenant($tenant);
+        $requiresTwoFactor = $this->securityPolicies->requiresTwoFactor($user, $policy);
 
         if ($user->hasTwoFactorEnabled()) {
             $secret = $this->twoFactor->decryptSecret($user->two_factor_secret);
@@ -100,6 +107,13 @@ class AuthController extends Controller
             'token_type' => 'Bearer',
             'abilities' => $abilities,
             'user' => UserResource::make($user),
+            'two_factor' => [
+                'enforced' => (bool) $policy->enforce_two_factor,
+                'required' => $requiresTwoFactor,
+                'compliant' => $user->hasTwoFactorEnabled(),
+                'enforced_role_slugs' => $policy->enforced_role_slugs ?? [],
+                'enforced_permission_slugs' => $policy->enforced_permission_slugs ?? [],
+            ],
         ]);
     }
 
@@ -117,10 +131,20 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->loadMissing(['roles.permissions', 'permissions', 'tenant']);
+        $tenant = $user->tenant;
+        $policy = $tenant ? $this->securityPolicies->getPolicyForTenant($tenant) : null;
+        $requiresTwoFactor = $policy ? $this->securityPolicies->requiresTwoFactor($user, $policy) : false;
 
         return response()->json([
             'user' => UserResource::make($user),
             'abilities' => $user->allPermissionSlugs()->values(),
+            'two_factor' => [
+                'enforced' => (bool) ($policy?->enforce_two_factor ?? false),
+                'required' => $requiresTwoFactor,
+                'compliant' => $user->hasTwoFactorEnabled(),
+                'enforced_role_slugs' => $policy?->enforced_role_slugs ?? [],
+                'enforced_permission_slugs' => $policy?->enforced_permission_slugs ?? [],
+            ],
         ]);
     }
 
@@ -210,9 +234,22 @@ class AuthController extends Controller
         /** @var User $user */
         $user = $request->user();
         $user = $user->fresh() ?? $user; // pull a fresh copy in case two-factor fields changed outside this request
+        $user->loadMissing('tenant');
 
         if (! $user->hasTwoFactorEnabled()) {
             return response()->json([], 204);
+        }
+
+        $policy = $user->tenant ? $this->securityPolicies->getPolicyForTenant($user->tenant) : null;
+
+        if ($policy
+            && config('security.two_factor.lock_disable_for_enforced_users', true)
+            && $this->securityPolicies->requiresTwoFactor($user, $policy)
+        ) {
+            return response()->json([
+                'message' => __('Two-factor authentication is required for your current role and cannot be disabled.'),
+                'reason' => 'two_factor_enforced',
+            ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $secret = $this->twoFactor->decryptSecret($user->two_factor_secret);

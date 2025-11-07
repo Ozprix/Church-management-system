@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Finance\StorePledgeRequest;
 use App\Http\Requests\Finance\UpdatePledgeRequest;
 use App\Http\Resources\Finance\PledgeResource;
+use App\Http\Resources\NotificationResource;
+use App\Models\Notification;
 use App\Models\Pledge;
 use App\Services\FinanceService;
 use Illuminate\Http\JsonResponse;
@@ -55,5 +57,27 @@ class PledgeController extends Controller
         $pledge->delete();
 
         return response()->json([], 204);
+    }
+
+    public function reminders(Request $request, Pledge $pledge): JsonResponse
+    {
+        $notifications = Notification::query()
+            ->where('tenant_id', $pledge->tenant_id)
+            ->whereJsonContains('payload->pledge_id', $pledge->id)
+            ->when($request->query('channel'), fn ($query, $channel) => $query->where('channel', $channel))
+            ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
+            ->when($request->query('recipient'), fn ($query, $recipient) => $query->where('recipient', 'like', "%{$recipient}%"))
+            ->when($request->query('q'), function ($query) use ($request): void {
+                $term = '%' . $request->query('q') . '%';
+                $query->where(function ($inner) use ($term): void {
+                    $inner->where('recipient', 'like', $term)
+                        ->orWhere('subject', 'like', $term)
+                        ->orWhere('body', 'like', $term);
+                });
+            })
+            ->orderByDesc('created_at')
+            ->paginate($request->integer('per_page', 25));
+
+        return NotificationResource::collection($notifications)->response();
     }
 }

@@ -44,8 +44,17 @@ class MembershipProcessReportController extends Controller
         $completionTimes = MemberProcessRun::query()
             ->where('process_id', $membershipProcess->id)
             ->whereNotNull('completed_at')
-            ->select(DB::raw('TIMESTAMPDIFF(HOUR, started_at, completed_at) as hours'))
-            ->pluck('hours');
+            ->get()
+            ->map(function (MemberProcessRun $run) {
+                if (! $run->started_at || ! $run->completed_at) {
+                    return null;
+                }
+
+                $seconds = $run->started_at->diffInRealSeconds($run->completed_at);
+
+                return $seconds / 3600;
+            })
+            ->filter();
 
         $averageCompletionHours = $completionTimes->count() > 0
             ? round($completionTimes->avg(), 2)

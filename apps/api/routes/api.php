@@ -1,19 +1,29 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AttendanceAnalyticsController;
+use App\Http\Controllers\Api\AttendanceExportController;
+use App\Http\Controllers\Api\AttendanceAnalyticsExportController;
+use App\Http\Controllers\Api\AttendanceAnalyticsReportController;
+use App\Http\Controllers\Api\AttendanceAnalyticsReportSnapshotController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\FamilyDashboardController;
 use App\Http\Controllers\Api\FamilyExportController;
+use App\Http\Controllers\Api\FamilyCommunicationController;
 use App\Http\Controllers\Api\Finance\DashboardController;
 use App\Http\Controllers\Api\Finance\DonationController;
+use App\Http\Controllers\Api\Finance\ExpenseController;
 use App\Http\Controllers\Api\Finance\FinanceExportController;
+use App\Http\Controllers\Api\Finance\FinanceReportController;
 use App\Http\Controllers\Api\Finance\FundController;
 use App\Http\Controllers\Api\Finance\PaymentMethodController;
 use App\Http\Controllers\Api\Finance\PledgeController;
 use App\Http\Controllers\Api\Finance\RecurringDonationAttemptController;
 use App\Http\Controllers\Api\Finance\RecurringDonationScheduleController;
 use App\Http\Controllers\Api\GatheringController;
+use App\Http\Controllers\Api\GatheringRegistrationController;
+use App\Http\Controllers\Api\GatheringTicketTypeController;
 use App\Http\Controllers\Api\MemberAnalyticsController;
 use App\Http\Controllers\Api\MemberAnalyticsExportController;
 use App\Http\Controllers\Api\MemberAnalyticsReportController;
@@ -30,16 +40,23 @@ use App\Http\Controllers\Api\Membership\MemberProcessRunController;
 use App\Http\Controllers\Api\Membership\MembershipProcessController;
 use App\Http\Controllers\Api\Membership\MembershipProcessReportController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\NotificationHealthController;
 use App\Http\Controllers\Api\NotificationRuleController;
 use App\Http\Controllers\Api\NotificationTemplateController;
+use App\Http\Controllers\Api\Security\TenantSecurityPolicyController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\FinanceAnalyticsController;
+use App\Http\Controllers\Api\FinanceTrialBalanceController;
 use App\Http\Controllers\Api\FinanceAnalyticsExportController;
+use App\Http\Controllers\Api\Rbac\PermissionController as RbacPermissionController;
+use App\Http\Controllers\Api\Rbac\RoleController as RbacRoleController;
 use App\Http\Controllers\Api\Tenant\TenantController;
 use App\Http\Controllers\Api\Tenant\TenantDomainController;
 use App\Http\Controllers\Api\VisitorFollowupController;
+use App\Http\Controllers\Api\VisitorFollowupLogController;
 use App\Http\Controllers\Api\VisitorWorkflowController;
 use App\Http\Controllers\Api\VisitorWorkflowStepController;
+use App\Http\Controllers\Api\VisitorAnalyticsController;
 use App\Http\Controllers\Api\UserTwoFactorAdminController;
 use App\Http\Controllers\Api\Volunteer\VolunteerAnalyticsController;
 use App\Http\Controllers\Api\Volunteer\VolunteerAssignmentController;
@@ -67,7 +84,7 @@ Route::prefix('v1')->group(function (): void {
         ->withoutMiddleware(\App\Http\Middleware\ResolveTenant::class)
         ->withoutMiddleware('auth:sanctum');
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'two_factor.enforce'])->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/two-factor/setup', [AuthController::class, 'setupTwoFactor'])->name('auth.2fa.setup');
@@ -77,6 +94,15 @@ Route::prefix('v1')->group(function (): void {
         Route::post('auth/two-factor/admin-reset', [UserTwoFactorAdminController::class, 'reset'])
             ->name('auth.2fa.admin-reset')
             ->middleware('can:users.manage_security');
+
+        Route::prefix('security/two-factor')->group(function (): void {
+            Route::get('policy', [TenantSecurityPolicyController::class, 'show'])
+                ->name('security.two-factor.policy.show');
+            Route::put('policy', [TenantSecurityPolicyController::class, 'update'])
+                ->name('security.two-factor.policy.update');
+            Route::get('compliance', [TenantSecurityPolicyController::class, 'compliance'])
+                ->name('security.two-factor.compliance');
+        });
 
         Route::get('member-imports', [MemberImportController::class, 'index'])
             ->name('member-imports.index');
@@ -94,21 +120,30 @@ Route::prefix('v1')->group(function (): void {
             ->name('members.bulk-delete');
         Route::post('members/{member}/restore', [MemberController::class, 'restore'])->name('members.restore');
         Route::get('members/{member}/audits', [MemberAuditController::class, 'index'])->name('members.audits.index');
+        Route::get('members/analytics', MemberAnalyticsController::class)->name('members.analytics');
+        Route::get('members/analytics/export', MemberAnalyticsExportController::class)->name('members.analytics.export');
+        Route::get('members/export', MemberExportController::class);
         Route::apiResource('members', MemberController::class);
-        Route::get('members/analytics', MemberAnalyticsController::class);
-        Route::get('members/analytics/export', MemberAnalyticsExportController::class);
         Route::get('families/analytics', FamilyAnalyticsController::class);
         Route::get('families/analytics/export', FamilyAnalyticsExportController::class);
         Route::apiResource('member-analytics-reports', MemberAnalyticsReportController::class);
         Route::post('member-analytics-reports/{memberAnalyticsReport}/run', [MemberAnalyticsReportController::class, 'run']);
         Route::get('member-analytics-reports/{memberAnalyticsReport}/export', [MemberAnalyticsReportController::class, 'export']);
-        Route::get('members/export', MemberExportController::class);
         Route::apiResource('families', FamilyController::class);
+        Route::post('families/{family}/communications', [FamilyCommunicationController::class, 'store'])
+            ->name('families.communications.store');
         Route::get('families/export', FamilyExportController::class);
         Route::get('families/dashboard', FamilyDashboardController::class);
         Route::post('tenants/{tenant}/plans', [TenantController::class, 'assignPlan']);
         Route::get('finance/analytics', FinanceAnalyticsController::class);
         Route::get('finance/analytics/export', FinanceAnalyticsExportController::class);
+        Route::get('finance/ledger/trial-balance', FinanceTrialBalanceController::class);
+        Route::apiResource('finance/reports', FinanceReportController::class)->only(['index', 'store', 'show']);
+        Route::get('finance/reports/{financeReport}/download', [FinanceReportController::class, 'download'])
+            ->name('finance.reports.download');
+        Route::post('expenses/{expense}/submit', [ExpenseController::class, 'submit']);
+        Route::post('expenses/{expense}/approve', [ExpenseController::class, 'approve']);
+        Route::post('expenses/{expense}/reimburse', [ExpenseController::class, 'reimburse']);
 
         Route::get('tenant/profile', [TenantController::class, 'profile']);
         Route::get('tenant/domains', [TenantDomainController::class, 'index']);
@@ -133,14 +168,24 @@ Route::prefix('v1')->group(function (): void {
             ->shallow()
             ->only(['store', 'update', 'destroy']);
         Route::apiResource('visitor-followups', VisitorFollowupController::class)->only(['index', 'store', 'update']);
+        Route::get('visitor-followups/{visitorFollowup}/logs', [VisitorFollowupLogController::class, 'index'])
+            ->name('visitor-followups.logs.index');
+        Route::get('visitors/analytics', VisitorAnalyticsController::class)
+            ->name('visitors.analytics');
 
         Route::apiResource('services', ServiceController::class);
         Route::apiResource('gatherings', GatheringController::class);
 
         Route::apiResource('notification-templates', NotificationTemplateController::class);
+        Route::get('notifications/health', NotificationHealthController::class);
         Route::apiResource('notifications', NotificationController::class);
         Route::apiResource('notification-rules', NotificationRuleController::class);
         Route::post('notification-rules/{notification_rule}/run', [NotificationRuleController::class, 'run']);
+
+        Route::prefix('rbac')->middleware('can:rbac.view')->group(function (): void {
+            Route::get('roles', [RbacRoleController::class, 'index'])->name('rbac.roles.index');
+            Route::get('permissions', [RbacPermissionController::class, 'index'])->name('rbac.permissions.index');
+        });
 
         Route::apiResource('volunteer-roles', VolunteerRoleController::class);
         Route::apiResource('volunteer-teams', VolunteerTeamController::class);
@@ -152,8 +197,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('volunteer/analytics/summary', [VolunteerAnalyticsController::class, 'summary']);
 
         Route::apiResource('funds', FundController::class);
+        Route::get('pledges/{pledge}/reminders', [PledgeController::class, 'reminders']);
         Route::apiResource('pledges', PledgeController::class);
         Route::apiResource('donations', DonationController::class);
+        Route::apiResource('expenses', ExpenseController::class);
         Route::apiResource('payment-methods', PaymentMethodController::class);
         Route::apiResource('recurring-donations', RecurringDonationScheduleController::class);
         Route::get('recurring-donations/{recurring_donation}/attempts', [RecurringDonationAttemptController::class, 'index']);
@@ -168,6 +215,34 @@ Route::prefix('v1')->group(function (): void {
         Route::post('gatherings/{gathering}/attendance/bulk', [AttendanceController::class, 'bulk']);
         Route::patch('gatherings/{gathering}/attendance/{attendanceRecord}', [AttendanceController::class, 'update']);
         Route::delete('gatherings/{gathering}/attendance/{attendanceRecord}', [AttendanceController::class, 'destroy']);
+        Route::get('gatherings/{gathering}/attendance/export', [AttendanceExportController::class, 'show'])
+            ->name('attendance.gathering.export');
+        Route::post('attendance/exports', [AttendanceExportController::class, 'bulk'])
+            ->name('attendance.export.bulk');
+        Route::get('attendance/analytics', AttendanceAnalyticsController::class)
+            ->name('attendance.analytics');
+        Route::get('attendance/analytics/export', AttendanceAnalyticsExportController::class)
+            ->name('attendance.analytics.export');
+        Route::get('gatherings/calendar', [GatheringController::class, 'calendar']);
+        Route::get('gatherings/{gathering}/ticket-types', [GatheringTicketTypeController::class, 'index']);
+        Route::post('gatherings/{gathering}/ticket-types', [GatheringTicketTypeController::class, 'store']);
+        Route::get('gatherings/{gathering}/ticket-types/{ticketType}', [GatheringTicketTypeController::class, 'show']);
+        Route::put('gatherings/{gathering}/ticket-types/{ticketType}', [GatheringTicketTypeController::class, 'update']);
+        Route::delete('gatherings/{gathering}/ticket-types/{ticketType}', [GatheringTicketTypeController::class, 'destroy']);
+
+        Route::get('gatherings/{gathering}/registrations', [GatheringRegistrationController::class, 'index']);
+        Route::post('gatherings/{gathering}/registrations', [GatheringRegistrationController::class, 'store']);
+        Route::get('gatherings/{gathering}/registrations/{registration}', [GatheringRegistrationController::class, 'show']);
+        Route::put('gatherings/{gathering}/registrations/{registration}', [GatheringRegistrationController::class, 'update']);
+        Route::delete('gatherings/{gathering}/registrations/{registration}', [GatheringRegistrationController::class, 'destroy']);
+        Route::post('gatherings/{gathering}/registrations/{registration}/check-in', [GatheringRegistrationController::class, 'checkIn']);
+        Route::apiResource('attendance-analytics-reports', AttendanceAnalyticsReportController::class);
+        Route::post('attendance-analytics-reports/{attendanceAnalyticsReport}/run', [AttendanceAnalyticsReportController::class, 'run']);
+        Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/export', [AttendanceAnalyticsReportController::class, 'export']);
+        Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/snapshots', [AttendanceAnalyticsReportSnapshotController::class, 'index'])
+            ->name('attendance.analytics.reports.snapshots.index');
+        Route::get('attendance-analytics-reports/{attendanceAnalyticsReport}/snapshots/{snapshot}', [AttendanceAnalyticsReportSnapshotController::class, 'download'])
+            ->name('attendance.analytics.reports.snapshots.download');
     });
 });
 

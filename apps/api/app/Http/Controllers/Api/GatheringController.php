@@ -10,6 +10,7 @@ use App\Models\Gathering;
 use App\Services\AttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class GatheringController extends Controller
 {
@@ -40,6 +41,27 @@ class GatheringController extends Controller
         return GatheringResource::collection($gatherings)->response();
     }
 
+    public function calendar(Request $request): JsonResponse
+    {
+        $from = $request->query('from')
+            ? Carbon::parse($request->query('from'))
+            : Carbon::now()->startOfMonth();
+
+        $to = $request->query('to')
+            ? Carbon::parse($request->query('to'))
+            : $from->copy()->endOfMonth();
+
+        $gatherings = Gathering::query()
+            ->with('service')
+            ->where('tenant_id', optional($request->attributes->get('tenant'))->id)
+            ->where('starts_at', '<=', $to)
+            ->where('ends_at', '>=', $from)
+            ->orderBy('starts_at')
+            ->get();
+
+        return GatheringResource::collection($gatherings)->response();
+    }
+
     public function store(StoreGatheringRequest $request): JsonResponse
     {
         $gathering = $this->attendanceService->scheduleGathering($request->validated());
@@ -49,7 +71,13 @@ class GatheringController extends Controller
 
     public function show(Gathering $gathering): JsonResponse
     {
-        $gathering->load(['service', 'attendanceRecords.member']);
+        $gathering->load([
+            'service',
+            'attendanceRecords.member',
+            'ticketTypes',
+            'registrations.ticketType',
+            'registrations.member',
+        ]);
 
         return GatheringResource::make($gathering)->response();
     }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Volunteer;
 
+use App\Support\VolunteerSignupStage;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateVolunteerSignupRequest extends FormRequest
 {
@@ -20,7 +22,12 @@ class UpdateVolunteerSignupRequest extends FormRequest
             'name' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'status' => ['nullable', 'string', 'in:pending,reviewed,confirmed,assigned,rejected'],
+            'status' => ['nullable', 'string', 'in:pending,reviewed,confirmed,assigned,rejected,archived'],
+            'stage' => ['nullable', Rule::in(VolunteerSignupStage::values())],
+            'stage_notes' => ['nullable', 'string'],
+            'follow_up_at' => ['nullable', 'date'],
+            'last_contacted_at' => ['nullable', 'date'],
+            'onboarding_checklist' => ['nullable', 'array'],
             'notes' => ['nullable', 'string'],
             'metadata' => ['nullable', 'array'],
             'assignment' => ['nullable', 'array'],

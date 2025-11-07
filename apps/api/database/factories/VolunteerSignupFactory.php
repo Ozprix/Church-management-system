@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\Tenant;
 use App\Models\VolunteerRole;
 use App\Models\VolunteerSignup;
+use App\Support\VolunteerSignupStage;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class VolunteerSignupFactory extends Factory
@@ -22,9 +23,20 @@ class VolunteerSignupFactory extends Factory
             'email' => $this->faker->safeEmail(),
             'phone' => $this->faker->phoneNumber(),
             'status' => 'pending',
+            'stage' => VolunteerSignupStage::APPLIED,
             'applied_at' => now(),
             'notes' => null,
             'metadata' => null,
+            'stage_history' => [
+                [
+                    'from' => null,
+                    'to' => VolunteerSignupStage::APPLIED,
+                    'label' => 'New application',
+                    'changed_at' => now()->toIso8601String(),
+                    'changed_by' => null,
+                    'notes' => null,
+                ],
+            ],
         ];
     }
 }

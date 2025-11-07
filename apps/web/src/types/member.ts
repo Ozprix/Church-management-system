@@ -205,3 +205,45 @@ export interface FundSummary {
   id: number;
   name: string;
 }
+
+export interface PledgeSummary {
+  id: number;
+  amount: string;
+  fulfilled_amount: string | null;
+  currency: string;
+  frequency: string | null;
+  status: string;
+  notes: string | null;
+  reminder_enabled: boolean;
+  reminder_cadence: string | null;
+  next_reminder_at: string | null;
+  last_reminder_sent_at: string | null;
+  member?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+  } | null;
+  fund?: {
+    id: number;
+    name: string;
+  } | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface NotificationSummary {
+  id: number;
+  channel: string;
+  recipient: string | null;
+  subject: string | null;
+  body: string | null;
+  status: string;
+  scheduled_for: string | null;
+  sent_at: string | null;
+  provider: string | null;
+  provider_message_id: string | null;
+  error_message: string | null;
+  attempts: number;
+  payload: Record<string, unknown> | null;
+  created_at: string | null;
+}

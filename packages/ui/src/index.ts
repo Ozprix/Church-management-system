@@ -7,6 +7,7 @@ export * from './components/Label';
 export * from './components/Select';
 export * from './components/Table';
 export * from './components/Toast';
+export * from './components/Textarea';
 export * from './components/Badge';
 export * from './components/StatCard';
 export * from './components/FileUploadField';

@@ -24,6 +24,7 @@ class VolunteerSignupController extends Controller
         $signups = VolunteerSignup::query()
             ->with(['member', 'role', 'team'])
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
+            ->when($request->query('stage'), fn ($query, $stage) => $query->where('stage', $stage))
             ->orderByDesc('applied_at')
             ->paginate($request->integer('per_page', 20))
             ->appends($request->query());

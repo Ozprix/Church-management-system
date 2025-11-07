@@ -107,6 +107,23 @@ class MemberAnalyticsService
             ])
             ->values();
 
+        $withFamilyCount = (clone $baseQuery)->whereHas('families')->count();
+        $withoutFamily = max($totalMembers - $withFamilyCount, 0);
+        $conversionDenominator = (clone $baseQuery)->where('membership_status', '!=', 'visitor')->count();
+        $conversionRate = $totalMembers > 0 ? round(($conversionDenominator / $totalMembers) * 100, 1) : 0.0;
+
+        $thisMonthStart = now()->startOfMonth();
+        $previousMonthStart = $thisMonthStart->copy()->subMonth();
+        $previousMonthEnd = $thisMonthStart->copy()->subSecond();
+
+        $newThisMonth = (clone $baseQuery)->where('created_at', '>=', $thisMonthStart)->count();
+        $newLastMonth = (clone $baseQuery)
+            ->whereBetween('created_at', [$previousMonthStart, $previousMonthEnd])
+            ->count();
+        $growthVsLastMonth = $newLastMonth > 0
+            ? round((($newThisMonth - $newLastMonth) / $newLastMonth) * 100, 1)
+            : ($newThisMonth > 0 ? 100.0 : 0.0);
+
         $trendStart = now()->startOfMonth()->subMonths(5);
         $trendBuckets = [];
         for ($i = 0; $i < 6; $i++) {
@@ -144,6 +161,10 @@ class MemberAnalyticsService
         $withFamilyCount = (clone $baseQuery)->whereHas('families')->count();
         $staleSince = now()->copy()->subMonths(6);
         $staleProfiles = (clone $baseQuery)->where('updated_at', '<', $staleSince)->count();
+        $recentVisitors = (clone $baseQuery)
+            ->where('membership_status', 'visitor')
+            ->where('created_at', '>=', now()->subWeeks(4))
+            ->count();
 
         $recentMembers = $this->applyFilters(Member::query(), $filters)
             ->with('families')
@@ -161,16 +182,50 @@ class MemberAnalyticsService
                 ];
             });
 
+        $availableStatuses = Member::query()
+            ->select('membership_status')
+            ->distinct()
+            ->pluck('membership_status')
+            ->filter(fn ($value) => is_string($value) && $value !== '')
+            ->values();
+
+        $availableStages = Member::query()
+            ->select('membership_stage')
+            ->whereNotNull('membership_stage')
+            ->distinct()
+            ->pluck('membership_stage')
+            ->filter(fn ($value) => is_string($value) && $value !== '')
+            ->values();
+
+        $earliestJoined = Member::query()->min('created_at');
+        $latestJoined = Member::query()->max('created_at');
+
+        $joinedRange = [
+            'earliest' => $earliestJoined ? Carbon::parse($earliestJoined)->toDateString() : null,
+            'latest' => $latestJoined ? Carbon::parse($latestJoined)->toDateString() : null,
+        ];
+
         return [
             'totals' => [
                 'members' => $totalMembers,
-                'members_without_family' => max($totalMembers - $withFamilyCount, 0),
+                'members_with_family' => $withFamilyCount,
+                'members_without_family' => $withoutFamily,
                 'stale_profiles' => $staleProfiles,
+                'conversion_rate' => $conversionRate,
+                'new_this_month' => $newThisMonth,
+                'new_last_month' => $newLastMonth,
+                'growth_vs_last_month' => $growthVsLastMonth,
+                'recent_visitors' => $recentVisitors,
             ],
             'by_status' => $byStatus,
             'by_stage' => $byStage,
             'new_members_trend' => array_values($trendBuckets),
             'recent_members' => $recentMembers,
+            'filters' => [
+                'statuses' => $availableStatuses->all(),
+                'stages' => $availableStages->all(),
+                'joined_range' => $joinedRange,
+            ],
         ];
     }
 }

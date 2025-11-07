@@ -52,14 +52,23 @@ export default function RootLayout({
                 <Link href="/members" className="hover:text-emerald-600">
                   Members
                 </Link>
+                <Link href="/families" className="hover:text-emerald-600">
+                  Families
+                </Link>
                 <Link href="/account/security" className="hover:text-emerald-600">
                   Account security
                 </Link>
                 <Link href="/attendance" className="hover:text-emerald-600">
                   Attendance
                 </Link>
+                <Link href="/attendance/kiosk" className="hover:text-emerald-600">
+                  Kiosk
+                </Link>
                 <Link href="/volunteers" className="hover:text-emerald-600">
                   Volunteers
+                </Link>
+                <Link href="/volunteers/pipeline" className="hover:text-emerald-600">
+                  Pipeline
                 </Link>
                 <Link href="/visitors" className="hover:text-emerald-600">
                   Visitors

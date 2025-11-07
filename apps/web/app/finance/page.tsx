@@ -18,6 +18,12 @@ export default function FinanceDashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
+            href="/finance/analytics"
+            className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            Analytics
+          </Link>
+          <Link
             href="/finance/recurring"
             className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
@@ -28,6 +34,18 @@ export default function FinanceDashboardPage() {
             className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
             Manage Payment Methods
+          </Link>
+          <Link
+            href="/finance/expenses"
+            className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            Manage Expenses
+          </Link>
+          <Link
+            href="/finance/reports"
+            className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            Branded PDFs
           </Link>
         </div>
       </div>
